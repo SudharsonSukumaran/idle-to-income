@@ -13,7 +13,17 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
-    const prompt = `You are a hospitality revenue manager. Issue: ${issue_type} — ${description}. Revenue at risk: $${estimated_lost_revenue}. Give 3 lines: Line 1: Action — what to do. Line 2: Change — exact specific change. Line 3: Recovery — $amount and Easy/Medium/Hard.`;
+    const prompt = `You are a hospitality revenue management expert. Analyze this issue and respond with EXACTLY 3 lines in this format — no extra text, no bullet points, no numbering:
+
+Action: <what to do>
+Change: <what specific change to apply>
+Recovery: <estimated dollar amount recoverable and difficulty Easy/Medium/Hard>
+
+Issue type: ${issue_type}
+Description: ${description}
+Estimated lost revenue: $${estimated_lost_revenue}
+
+Respond with exactly those 3 lines. Do not add any other text.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
