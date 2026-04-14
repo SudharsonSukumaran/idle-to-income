@@ -35,7 +35,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "No recommendation generated.";
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "No AI response generated";
 
     return new Response(
       JSON.stringify({ recommendation: text }),
