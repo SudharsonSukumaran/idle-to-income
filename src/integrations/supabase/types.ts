@@ -14,7 +14,146 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      availability_slots: {
+        Row: {
+          channel: string | null
+          id: string
+          is_fragment: boolean | null
+          price: number | null
+          slot_date: string | null
+          source_name: string | null
+          status: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          channel?: string | null
+          id?: string
+          is_fragment?: boolean | null
+          price?: number | null
+          slot_date?: string | null
+          source_name?: string | null
+          status?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          channel?: string | null
+          id?: string
+          is_fragment?: boolean | null
+          price?: number | null
+          slot_date?: string | null
+          source_name?: string | null
+          status?: string | null
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_slots_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_units: {
+        Row: {
+          base_price: number | null
+          capacity: number | null
+          category: string | null
+          id: string
+          name: string | null
+        }
+        Insert: {
+          base_price?: number | null
+          capacity?: number | null
+          category?: string | null
+          id: string
+          name?: string | null
+        }
+        Update: {
+          base_price?: number | null
+          capacity?: number | null
+          category?: string | null
+          id?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
+      merge_conflicts: {
+        Row: {
+          id: string
+          resolution_rule: string | null
+          resolved_status: string | null
+          slot_date: string | null
+          source_a_name: string | null
+          source_a_status: string | null
+          source_b_name: string | null
+          source_b_status: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          id?: string
+          resolution_rule?: string | null
+          resolved_status?: string | null
+          slot_date?: string | null
+          source_a_name?: string | null
+          source_a_status?: string | null
+          source_b_name?: string | null
+          source_b_status?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          id?: string
+          resolution_rule?: string | null
+          resolved_status?: string | null
+          slot_date?: string | null
+          source_a_name?: string | null
+          source_a_status?: string | null
+          source_b_name?: string | null
+          source_b_status?: string | null
+          unit_id?: string | null
+        }
+        Relationships: []
+      }
+      recommendations: {
+        Row: {
+          ai_recommendation: string | null
+          created_at: string | null
+          description: string | null
+          estimated_lost_revenue: number | null
+          estimated_recovered: number | null
+          id: string
+          issue_type: string | null
+          severity: string | null
+          status: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          ai_recommendation?: string | null
+          created_at?: string | null
+          description?: string | null
+          estimated_lost_revenue?: number | null
+          estimated_recovered?: number | null
+          id?: string
+          issue_type?: string | null
+          severity?: string | null
+          status?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          ai_recommendation?: string | null
+          created_at?: string | null
+          description?: string | null
+          estimated_lost_revenue?: number | null
+          estimated_recovered?: number | null
+          id?: string
+          issue_type?: string | null
+          severity?: string | null
+          status?: string | null
+          unit_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
