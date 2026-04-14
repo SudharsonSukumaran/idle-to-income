@@ -1,4 +1,5 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { AppSidebar } from "@/components/AppSidebar";
 
 import appCss from "../styles.css?url";
 
@@ -31,20 +32,11 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Idle2Income - Grow Your Wealth Empire" },
-      { name: "description", content: "An idle clicker game where you build passive income streams and grow your virtual wealth empire." },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { title: "Idle2Income — Revenue Recovery Platform" },
+      { name: "description", content: "Hospitality revenue recovery platform that identifies lost revenue and provides AI-powered recommendations." },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
     ],
   }),
   shellComponent: RootShell,
@@ -67,5 +59,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-  return <Outlet />;
+  return (
+    <div className="flex min-h-screen w-full">
+      <AppSidebar />
+      <main className="flex-1 overflow-auto bg-background">
+        <Outlet />
+      </main>
+    </div>
+  );
 }
