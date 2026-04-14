@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
-import { GitMerge, Loader2, RefreshCw } from "lucide-react";
+import { GitMerge, Loader2, RefreshCw, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { detectFragmentation } from "@/lib/detect-fragmentation";
 
 export const Route = createFileRoute("/conflicts")({
   head: () => ({
@@ -38,6 +39,7 @@ function ConflictsPage() {
   const [conflicts, setConflicts] = useState<ConflictRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [merging, setMerging] = useState(false);
+  const [detecting, setDetecting] = useState(false);
 
   const fetchConflicts = useCallback(async () => {
     setLoading(true);
@@ -162,14 +164,35 @@ function ConflictsPage() {
             Detect and resolve data conflicts across sources.
           </p>
         </div>
-        <button
-          onClick={fetchConflicts}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/10 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              setDetecting(true);
+              try {
+                const count = await detectFragmentation();
+                toast.success(`Fragmentation detection complete. ${count} issues found.`);
+                await fetchConflicts();
+              } catch (err: any) {
+                toast.error(err.message ?? "Detection failed");
+              } finally {
+                setDetecting(false);
+              }
+            }}
+            disabled={detecting}
+            className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-amber-700 disabled:opacity-50"
+          >
+            {detecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            {detecting ? "Detecting…" : "Detect Fragmentation"}
+          </button>
+          <button
+            onClick={fetchConflicts}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/10 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Summary bar + merge button */}
