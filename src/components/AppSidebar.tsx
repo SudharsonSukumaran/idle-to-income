@@ -18,9 +18,14 @@ export function AppSidebar() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
           I2I
         </div>
-        <span className="text-lg font-semibold text-sidebar-primary-foreground">
-          Idle2Income
-        </span>
+        <div className="flex flex-col">
+          <span className="text-lg font-semibold text-sidebar-primary-foreground leading-tight">
+            Idle2Income
+          </span>
+          <span className="text-[10px] font-medium text-primary/70 tracking-wide">
+            Demo Ready
+          </span>
+        </div>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
