@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock } from "lucide-react";
+import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { detectFragmentation } from "@/lib/detect-fragmentation";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
@@ -44,6 +46,7 @@ function DashboardPage() {
   const [recs, setRecs] = useState<RecommendationRow[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [detecting, setDetecting] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -78,20 +81,40 @@ function DashboardPage() {
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Revenue recovery overview</p>
         </div>
-        <button
-          onClick={fetchAll}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              setDetecting(true);
+              try {
+                const count = await detectFragmentation();
+                toast.success(`Fragmentation detection complete. ${count} issues found.`);
+                await fetchAll();
+              } catch (err: any) {
+                toast.error(err.message ?? "Detection failed");
+              } finally {
+                setDetecting(false);
+              }
+            }}
+            disabled={detecting}
+            className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-amber-700 disabled:opacity-50"
+          >
+            {detecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            {detecting ? "Detecting…" : "Detect Fragmentation"}
+          </button>
+          <button
+            onClick={fetchAll}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
