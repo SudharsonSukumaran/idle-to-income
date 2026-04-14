@@ -16,7 +16,7 @@ serve(async (req) => {
     const prompt = `You are a hospitality revenue manager. Issue: ${issue_type} — ${description}. Revenue at risk: $${estimated_lost_revenue}. Give 3 lines: Line 1: Action — what to do. Line 2: Change — exact specific change. Line 3: Recovery — $amount and Easy/Medium/Hard.`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
