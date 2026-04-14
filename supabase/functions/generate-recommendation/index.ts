@@ -13,17 +13,30 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
-    const prompt = `You are a hospitality revenue management expert. Analyze this issue and respond with EXACTLY 3 lines in this format — no extra text, no bullet points, no numbering:
+    const prompt = `You are a senior hospitality revenue management consultant writing recommendations for a product demo.
 
-Action: <what to do>
-Change: <what specific change to apply>
-Recovery: <estimated dollar amount recoverable and difficulty Easy/Medium/Hard>
+Analyze the following issue and return EXACTLY 3 lines in this format. Do not use markdown, bullet points, numbering, asterisks, or any extra text. Each line must be a complete, professional sentence.
+
+Action: <a clear, professional action statement that addresses the root cause of the issue>
+Change: <a specific operational or pricing change to implement, referencing the issue context>
+Recovery: <the expected dollar recovery amount with a short business justification>
+
+Style guide:
+- Write as if presenting to a hotel operations team.
+- Each line should be concise but meaningful — not a keyword or fragment.
+- Mention the issue type and context naturally within the sentences.
+- The Recovery line must reference the estimated lost revenue and explain how much can be recovered and why.
 
 Issue type: ${issue_type}
 Description: ${description}
 Estimated lost revenue: $${estimated_lost_revenue}
 
-Respond with exactly those 3 lines. Do not add any other text.`;
+Example output:
+Action: Launch a targeted promotional offer to improve utilization for this underfilled inventory.
+Change: Consolidate low-demand dates and introduce a limited-time discount or bundled package to increase booking conversion.
+Recovery: Estimated recovery is $240 by improving occupancy across fragmented availability and reducing unsold capacity.
+
+Now generate your 3-line recommendation for the issue above. Output only those 3 lines, nothing else.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -32,7 +45,7 @@ Respond with exactly those 3 lines. Do not add any other text.`;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 200, temperature: 0.3 },
+          generationConfig: { maxOutputTokens: 400, temperature: 0.4 },
         }),
       }
     );
