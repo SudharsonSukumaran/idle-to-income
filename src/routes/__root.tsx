@@ -34,6 +34,12 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Idle2Income — Revenue Recovery Platform" },
       { name: "description", content: "Hospitality revenue recovery platform that identifies lost revenue and provides AI-powered recommendations." },
+      { property: "og:title", content: "Idle2Income — Revenue Recovery Platform" },
+      { name: "twitter:title", content: "Idle2Income — Revenue Recovery Platform" },
+      { property: "og:description", content: "Hospitality revenue recovery platform that identifies lost revenue and provides AI-powered recommendations." },
+      { name: "twitter:description", content: "Hospitality revenue recovery platform that identifies lost revenue and provides AI-powered recommendations." },
+      { name: "twitter:card", content: "summary" },
+      { property: "og:type", content: "website" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
