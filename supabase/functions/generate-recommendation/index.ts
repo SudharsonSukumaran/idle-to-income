@@ -45,7 +45,7 @@ Now generate your 3-line recommendation for the issue above. Output only those 3
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 200, temperature: 0.3 },
+          generationConfig: { maxOutputTokens: 400, temperature: 0.4 },
         }),
       }
     );
