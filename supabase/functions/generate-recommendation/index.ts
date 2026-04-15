@@ -9,7 +9,21 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { issue_type, description, estimated_lost_revenue } = await req.json();
+    // Validate request body
+    const body = await req.json();
+    const issue_type = typeof body.issue_type === "string" ? body.issue_type.slice(0, 200) : "";
+    const description = typeof body.description === "string" ? body.description.slice(0, 500) : "";
+    const estimated_lost_revenue = typeof body.estimated_lost_revenue === "number"
+      ? Math.max(0, Math.min(body.estimated_lost_revenue, 1_000_000))
+      : 0;
+
+    if (!issue_type || !description) {
+      return new Response(
+        JSON.stringify({ error: "issue_type and description are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
