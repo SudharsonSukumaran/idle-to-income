@@ -68,9 +68,23 @@ function RootComponent() {
   return (
     <div className="flex min-h-screen w-full">
       <AppSidebar />
-      <main className="flex-1 overflow-auto bg-background">
-        <Outlet />
-      </main>
+      <div className="flex flex-1 flex-col overflow-auto">
+        {/* Top navbar */}
+        <header className="flex h-14 items-center justify-end border-b border-border bg-background px-6 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-600 text-sm font-semibold text-white shrink-0">
+              SS
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-foreground leading-tight">Sudharson S</span>
+              <span className="text-xs text-muted-foreground leading-tight">Revenue Analyst</span>
+            </div>
+          </div>
+        </header>
+        <main className="flex-1 overflow-auto bg-background">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
