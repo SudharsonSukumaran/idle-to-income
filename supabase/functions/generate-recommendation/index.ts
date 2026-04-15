@@ -24,8 +24,8 @@ serve(async (req) => {
       );
     }
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
 
     const prompt = `You are a senior hospitality revenue management consultant writing recommendations for a product demo.
 
@@ -52,27 +52,58 @@ Recovery: Estimated recovery is $240 by improving occupancy across fragmented av
 
 Now generate your 3-line recommendation for the issue above. Output only those 3 lines, nothing else.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 400, temperature: 0.4 },
-        }),
+    const fetchOptions = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 400,
+        temperature: 0.3,
+      }),
+    };
+
+    const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
+
+    let response = await fetch(groqUrl, fetchOptions);
+
+    // Retry once on 503
+    if (response.status === 503) {
+      await new Promise((r) => setTimeout(r, 2000));
+      response = await fetch(groqUrl, fetchOptions);
+      if (response.status === 503) {
+        return new Response(
+          JSON.stringify({ recommendation: "Groq is busy — click Generate again to retry." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-    );
+    }
 
     if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        return new Response(
+          JSON.stringify({ recommendation: "Error: Invalid Groq API key — check GROQ_API_KEY in secrets." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ recommendation: "Error: Rate limit — wait 30 seconds and try again." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       return new Response(
-        JSON.stringify({ recommendation: `API error: ${response.status}` }),
+        JSON.stringify({ recommendation: `API error: ${response.status} — ${(err as any)?.error?.message || "unknown error"}` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "No AI response generated";
+    const text = data?.choices?.[0]?.message?.content?.trim() ?? "No AI response generated";
 
     return new Response(
       JSON.stringify({ recommendation: text }),
