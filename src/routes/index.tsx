@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { detectFragmentation } from "@/lib/detect-fragmentation";
 import { supabase } from "@/integrations/supabase/client";
+import { DateRangeFilter, DEFAULT_FROM, DEFAULT_TO } from "@/components/DateRangeFilter";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -36,22 +37,19 @@ interface UnitRow {
   name: string;
 }
 
-const DATES = Array.from({ length: 10 }, (_, i) => {
-  const d = new Date(2026, 3, 14 + i);
-  return d.toISOString().split("T")[0];
-});
-
 function DashboardPage() {
   const [slots, setSlots] = useState<SlotRow[]>([]);
   const [recs, setRecs] = useState<RecommendationRow[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [detecting, setDetecting] = useState(false);
+  const [fromDate, setFromDate] = useState(DEFAULT_FROM);
+  const [toDate, setToDate] = useState(DEFAULT_TO);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (from: string, to: string) => {
     setLoading(true);
     const [slotsRes, recsRes, unitsRes] = await Promise.all([
-      supabase.from("availability_slots").select("id, unit_id, slot_date, status, price, is_fragment"),
+      supabase.from("availability_slots").select("id, unit_id, slot_date, status, price, is_fragment").gte("slot_date", from).lte("slot_date", to),
       supabase.from("recommendations").select("id, unit_id, issue_type, estimated_lost_revenue").order("estimated_lost_revenue", { ascending: false }).limit(5),
       supabase.from("inventory_units").select("id, name"),
     ]);
@@ -62,8 +60,18 @@ function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    fetchAll(fromDate, toDate);
+  }, [fetchAll, fromDate, toDate]);
+
+  const dates = useMemo(() => {
+    const start = new Date(fromDate + "T00:00:00");
+    const end = new Date(toDate + "T00:00:00");
+    const arr: string[] = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      arr.push(d.toISOString().split("T")[0]);
+    }
+    return arr;
+  }, [fromDate, toDate]);
 
   const totalSlots = slots.length;
   const fragmented = slots.filter((s) => s.is_fragment).length;
@@ -73,11 +81,15 @@ function DashboardPage() {
   const unitMap = new Map(units.map((u) => [u.id, u.name ?? u.id]));
   const uniqueUnitIds = [...new Set(slots.map((s) => s.unit_id))];
 
-  // Build lookup: unitId-date -> slot
   const slotLookup = new Map<string, SlotRow>();
   for (const s of slots) {
     slotLookup.set(`${s.unit_id}-${s.slot_date}`, s);
   }
+
+  const handleClear = () => {
+    setFromDate(DEFAULT_FROM);
+    setToDate(DEFAULT_TO);
+  };
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -93,7 +105,7 @@ function DashboardPage() {
               try {
                 const count = await detectFragmentation();
                 toast.success(`Fragmentation detection complete. ${count} issues found.`);
-                await fetchAll();
+                await fetchAll(fromDate, toDate);
               } catch (err: any) {
                 toast.error(err.message ?? "Detection failed");
               } finally {
@@ -107,7 +119,7 @@ function DashboardPage() {
             {detecting ? "Detecting…" : "Detect Fragmentation"}
           </button>
           <button
-            onClick={fetchAll}
+            onClick={() => fetchAll(fromDate, toDate)}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
@@ -116,6 +128,9 @@ function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* Date range filter */}
+      <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToChange={setToDate} onClear={handleClear} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -138,7 +153,7 @@ function DashboardPage() {
                 <thead>
                   <tr>
                     <th className="text-left py-1 px-2 text-muted-foreground font-medium sticky left-0 bg-card z-10">Unit</th>
-                    {DATES.map((d) => (
+                    {dates.map((d) => (
                       <th key={d} className="py-1 px-1 text-center text-muted-foreground font-medium whitespace-nowrap">
                         {d.slice(5)}
                       </th>
@@ -151,7 +166,7 @@ function DashboardPage() {
                       <td className="py-1 px-2 font-medium text-card-foreground whitespace-nowrap sticky left-0 bg-card z-10">
                         {abbreviate(unitMap.get(unitId) ?? unitId)}
                       </td>
-                      {DATES.map((date) => {
+                      {dates.map((date) => {
                         const slot = slotLookup.get(`${unitId}-${date}`);
                         return (
                           <td key={date} className="py-1 px-1 text-center">
