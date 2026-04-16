@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Lightbulb, RefreshCw, Loader2, Sparkles, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { DateRangeFilter, DEFAULT_FROM, DEFAULT_TO } from "@/components/DateRangeFilter";
+import { DataFilters, getDefaultFilters, applyUnitFilters, type FilterState } from "@/components/DataFilters";
 
 export const Route = createFileRoute("/recommendations")({
   head: () => ({
@@ -27,22 +27,26 @@ interface RecRow {
   status: string;
 }
 
+interface UnitRow {
+  id: string;
+  category: string | null;
+}
+
 function RecommendationsPage() {
   const [recs, setRecs] = useState<RecRow[]>([]);
+  const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [fromDate, setFromDate] = useState(DEFAULT_FROM);
-  const [toDate, setToDate] = useState(DEFAULT_TO);
+  const [filters, setFilters] = useState<FilterState>(getDefaultFilters);
 
-  const fetchRecs = useCallback(async (from: string, to: string) => {
+  const fetchRecs = useCallback(async (f: FilterState) => {
     setLoading(true);
-    // Get unit_ids that have slots in the date range
-    const { data: slotData } = await supabase
-      .from("availability_slots")
-      .select("unit_id")
-      .gte("slot_date", from)
-      .lte("slot_date", to);
-    const unitIds = [...new Set((slotData ?? []).map((s: any) => s.unit_id).filter(Boolean))];
+    const [slotRes, unitRes] = await Promise.all([
+      supabase.from("availability_slots").select("unit_id").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
+      supabase.from("inventory_units").select("id, category"),
+    ]);
+    const unitIds = [...new Set((slotRes.data ?? []).map((s: any) => s.unit_id).filter(Boolean))];
+    setUnits((unitRes.data as UnitRow[]) ?? []);
 
     let recsData: RecRow[] = [];
     if (unitIds.length > 0) {
@@ -58,15 +62,23 @@ function RecommendationsPage() {
   }, []);
 
   useEffect(() => {
-    fetchRecs(fromDate, toDate);
-  }, [fetchRecs, fromDate, toDate]);
+    fetchRecs(filters);
+  }, [fetchRecs, filters]);
 
-  const totalRecoverable = recs.reduce((s, r) => s + (r.estimated_recovered ?? 0), 0);
+  // Apply unit filters client-side
+  const allUnitIds = useMemo(() => [...new Set(recs.map((r) => r.unit_id))], [recs]);
+  const allowedUnits = useMemo(
+    () => applyUnitFilters(allUnitIds, units, filters.assetGroup, filters.categoryType),
+    [allUnitIds, units, filters.assetGroup, filters.categoryType],
+  );
+  const filteredRecs = useMemo(() => recs.filter((r) => allowedUnits.has(r.unit_id)), [recs, allowedUnits]);
+
+  const totalRecoverable = filteredRecs.reduce((s, r) => s + (r.estimated_recovered ?? 0), 0);
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const pending = recs.filter((r) => !r.ai_recommendation);
+      const pending = filteredRecs.filter((r) => !r.ai_recommendation);
       if (pending.length === 0) {
         toast.info("All recommendations already have AI analysis.");
         setGenerating(false);
@@ -107,7 +119,7 @@ function RecommendationsPage() {
       }
 
       toast.success(`Generated AI analysis for ${completed} recommendation${completed !== 1 ? "s" : ""}.`);
-      await fetchRecs(fromDate, toDate);
+      await fetchRecs(filters);
     } catch (err: any) {
       toast.error(err.message ?? "Generation failed");
     } finally {
@@ -121,13 +133,8 @@ function RecommendationsPage() {
       toast.error(error.message);
     } else {
       toast.success(`Recommendation ${status}.`);
-      await fetchRecs(fromDate, toDate);
+      await fetchRecs(filters);
     }
-  };
-
-  const handleClear = () => {
-    setFromDate(DEFAULT_FROM);
-    setToDate(DEFAULT_TO);
   };
 
   return (
@@ -148,7 +155,7 @@ function RecommendationsPage() {
             {generating ? "Generating…" : "Generate AI Recommendations"}
           </button>
           <button
-            onClick={() => fetchRecs(fromDate, toDate)}
+            onClick={() => fetchRecs(filters)}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/10 disabled:opacity-50"
           >
@@ -158,8 +165,8 @@ function RecommendationsPage() {
         </div>
       </div>
 
-      {/* Date range filter */}
-      <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToChange={setToDate} onClear={handleClear} />
+      {/* Filters */}
+      <DataFilters filters={filters} onFiltersChange={setFilters} />
 
       {/* Summary banner */}
       <div className="rounded-lg border border-border bg-card p-4 flex items-center gap-3">
@@ -170,13 +177,13 @@ function RecommendationsPage() {
       </div>
 
       {/* Cards */}
-      {recs.length === 0 && !loading ? (
+      {filteredRecs.length === 0 && !loading ? (
         <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
           No recommendations yet. Run merge conflicts first, then add recommendation rows.
         </div>
       ) : (
         <div className="space-y-4">
-          {recs.map((rec) => (
+          {filteredRecs.map((rec) => (
             <RecCard key={rec.id} rec={rec} onAction={handleAction} />
           ))}
         </div>

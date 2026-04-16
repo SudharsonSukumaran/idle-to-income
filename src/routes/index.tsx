@@ -4,7 +4,7 @@ import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Sea
 import { toast } from "sonner";
 import { detectFragmentation } from "@/lib/detect-fragmentation";
 import { supabase } from "@/integrations/supabase/client";
-import { DateRangeFilter, DEFAULT_FROM, DEFAULT_TO } from "@/components/DateRangeFilter";
+import { DataFilters, getDefaultFilters, applyUnitFilters, type FilterState } from "@/components/DataFilters";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,6 +35,7 @@ interface RecommendationRow {
 interface UnitRow {
   id: string;
   name: string;
+  category: string | null;
 }
 
 function DashboardPage() {
@@ -43,15 +44,14 @@ function DashboardPage() {
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [detecting, setDetecting] = useState(false);
-  const [fromDate, setFromDate] = useState(DEFAULT_FROM);
-  const [toDate, setToDate] = useState(DEFAULT_TO);
+  const [filters, setFilters] = useState<FilterState>(getDefaultFilters);
 
-  const fetchAll = useCallback(async (from: string, to: string) => {
+  const fetchAll = useCallback(async (f: FilterState) => {
     setLoading(true);
     const [slotsRes, recsRes, unitsRes] = await Promise.all([
-      supabase.from("availability_slots").select("id, unit_id, slot_date, status, price, is_fragment").gte("slot_date", from).lte("slot_date", to),
+      supabase.from("availability_slots").select("id, unit_id, slot_date, status, price, is_fragment").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
       supabase.from("recommendations").select("id, unit_id, issue_type, estimated_lost_revenue").order("estimated_lost_revenue", { ascending: false }).limit(5),
-      supabase.from("inventory_units").select("id, name"),
+      supabase.from("inventory_units").select("id, name, category"),
     ]);
     setSlots((slotsRes.data as SlotRow[]) ?? []);
     setRecs((recsRes.data as RecommendationRow[]) ?? []);
@@ -60,36 +60,41 @@ function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    fetchAll(fromDate, toDate);
-  }, [fetchAll, fromDate, toDate]);
+    fetchAll(filters);
+  }, [fetchAll, filters]);
+
+  // Apply unit filters
+  const allUnitIds = useMemo(() => [...new Set(slots.map((s) => s.unit_id))], [slots]);
+  const allowedUnits = useMemo(
+    () => applyUnitFilters(allUnitIds, units, filters.assetGroup, filters.categoryType),
+    [allUnitIds, units, filters.assetGroup, filters.categoryType],
+  );
+
+  const filteredSlots = useMemo(() => slots.filter((s) => allowedUnits.has(s.unit_id)), [slots, allowedUnits]);
+  const filteredRecs = useMemo(() => recs.filter((r) => allowedUnits.has(r.unit_id)), [recs, allowedUnits]);
 
   const dates = useMemo(() => {
-    const start = new Date(fromDate + "T00:00:00");
-    const end = new Date(toDate + "T00:00:00");
+    const start = new Date(filters.fromDate + "T00:00:00");
+    const end = new Date(filters.toDate + "T00:00:00");
     const arr: string[] = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       arr.push(d.toISOString().split("T")[0]);
     }
     return arr;
-  }, [fromDate, toDate]);
+  }, [filters.fromDate, filters.toDate]);
 
-  const totalSlots = slots.length;
-  const fragmented = slots.filter((s) => s.is_fragment).length;
-  const revenueAtRisk = slots.filter((s) => s.is_fragment).reduce((sum, s) => sum + (s.price ?? 0), 0);
-  const totalRecs = recs.length;
+  const totalSlots = filteredSlots.length;
+  const fragmented = filteredSlots.filter((s) => s.is_fragment).length;
+  const revenueAtRisk = filteredSlots.filter((s) => s.is_fragment).reduce((sum, s) => sum + (s.price ?? 0), 0);
+  const totalRecs = filteredRecs.length;
 
   const unitMap = new Map(units.map((u) => [u.id, u.name ?? u.id]));
-  const uniqueUnitIds = [...new Set(slots.map((s) => s.unit_id))];
+  const uniqueUnitIds = [...allowedUnits];
 
   const slotLookup = new Map<string, SlotRow>();
-  for (const s of slots) {
+  for (const s of filteredSlots) {
     slotLookup.set(`${s.unit_id}-${s.slot_date}`, s);
   }
-
-  const handleClear = () => {
-    setFromDate(DEFAULT_FROM);
-    setToDate(DEFAULT_TO);
-  };
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -105,7 +110,7 @@ function DashboardPage() {
               try {
                 const count = await detectFragmentation();
                 toast.success(`Fragmentation detection complete. ${count} issues found.`);
-                await fetchAll(fromDate, toDate);
+                await fetchAll(filters);
               } catch (err: any) {
                 toast.error(err.message ?? "Detection failed");
               } finally {
@@ -119,7 +124,7 @@ function DashboardPage() {
             {detecting ? "Detecting…" : "Detect Fragmentation"}
           </button>
           <button
-            onClick={() => fetchAll(fromDate, toDate)}
+            onClick={() => fetchAll(filters)}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
@@ -129,8 +134,8 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* Date range filter */}
-      <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToChange={setToDate} onClear={handleClear} />
+      {/* Filters */}
+      <DataFilters filters={filters} onFiltersChange={setFilters} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -190,11 +195,11 @@ function DashboardPage() {
         {/* Top 5 issues */}
         <div className="w-full xl:w-72 shrink-0 rounded-lg border border-border bg-card p-4">
           <h2 className="text-sm font-semibold text-card-foreground mb-3">Top 5 Issues</h2>
-          {recs.length === 0 ? (
+          {filteredRecs.length === 0 ? (
             <p className="text-sm text-muted-foreground">No recommendations yet.</p>
           ) : (
             <ul className="space-y-3">
-              {recs.map((r) => (
+              {filteredRecs.map((r) => (
                 <li key={r.id} className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-medium text-card-foreground">{r.issue_type}</p>
