@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { DateRangeFilter, DEFAULT_FROM, DEFAULT_TO } from "@/components/DateRangeFilter";
+import { DataFilters, getDefaultFilters, applyUnitFilters, type FilterState } from "@/components/DataFilters";
 
 export const Route = createFileRoute("/comparison")({
   head: () => ({
@@ -33,6 +33,7 @@ interface RecRow {
 interface UnitRow {
   id: string;
   name: string;
+  category: string | null;
 }
 
 function ComparisonPage() {
@@ -41,15 +42,14 @@ function ComparisonPage() {
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
-  const [fromDate, setFromDate] = useState(DEFAULT_FROM);
-  const [toDate, setToDate] = useState(DEFAULT_TO);
+  const [filters, setFilters] = useState<FilterState>(getDefaultFilters);
 
-  const fetchAll = useCallback(async (from: string, to: string) => {
+  const fetchAll = useCallback(async (f: FilterState) => {
     setLoading(true);
     const [sRes, rRes, uRes] = await Promise.all([
-      supabase.from("availability_slots").select("id, unit_id, slot_date, status, is_fragment").gte("slot_date", from).lte("slot_date", to),
+      supabase.from("availability_slots").select("id, unit_id, slot_date, status, is_fragment").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
       supabase.from("recommendations").select("id, unit_id, status, estimated_recovered"),
-      supabase.from("inventory_units").select("id, name"),
+      supabase.from("inventory_units").select("id, name, category"),
     ]);
     setSlots((sRes.data as SlotRow[]) ?? []);
     setRecs((rRes.data as RecRow[]) ?? []);
@@ -58,39 +58,48 @@ function ComparisonPage() {
   }, []);
 
   useEffect(() => {
-    fetchAll(fromDate, toDate);
-  }, [fetchAll, fromDate, toDate]);
+    fetchAll(filters);
+  }, [fetchAll, filters]);
+
+  const allUnitIds = useMemo(() => [...new Set(slots.map((s) => s.unit_id))], [slots]);
+  const allowedUnits = useMemo(
+    () => applyUnitFilters(allUnitIds, units, filters.assetGroup, filters.categoryType),
+    [allUnitIds, units, filters.assetGroup, filters.categoryType],
+  );
+
+  const filteredSlots = useMemo(() => slots.filter((s) => allowedUnits.has(s.unit_id)), [slots, allowedUnits]);
+  const filteredRecs = useMemo(() => recs.filter((r) => allowedUnits.has(r.unit_id)), [recs, allowedUnits]);
 
   const dates = useMemo(() => {
-    const start = new Date(fromDate + "T00:00:00");
-    const end = new Date(toDate + "T00:00:00");
+    const start = new Date(filters.fromDate + "T00:00:00");
+    const end = new Date(filters.toDate + "T00:00:00");
     const arr: string[] = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       arr.push(d.toISOString().split("T")[0]);
     }
     return arr;
-  }, [fromDate, toDate]);
+  }, [filters.fromDate, filters.toDate]);
 
   // Metrics
-  const total = slots.length || 1;
-  const beforeUsable = slots.filter((s) => !s.is_fragment && s.status === "available").length;
+  const total = filteredSlots.length || 1;
+  const beforeUsable = filteredSlots.filter((s) => !s.is_fragment && s.status === "available").length;
   const beforePct = ((beforeUsable / total) * 100).toFixed(1);
 
-  const appliedUnits = new Set(recs.filter((r) => r.status === "applied").map((r) => r.unit_id));
-  const afterUsable = slots.filter(
+  const appliedUnits = new Set(filteredRecs.filter((r) => r.status === "applied").map((r) => r.unit_id));
+  const afterUsable = filteredSlots.filter(
     (s) => s.status === "available" || (s.is_fragment && appliedUnits.has(s.unit_id)),
   ).length;
   const afterPct = ((afterUsable / total) * 100).toFixed(1);
 
-  const recovered = recs
+  const recovered = filteredRecs
     .filter((r) => r.status === "applied")
     .reduce((sum, r) => sum + (r.estimated_recovered ?? 0), 0);
 
   // Lookups
   const unitMap = new Map(units.map((u) => [u.id, u.name ?? u.id]));
-  const uniqueUnitIds = [...new Set(slots.map((s) => s.unit_id))];
+  const uniqueUnitIds = [...allowedUnits];
   const slotLookup = new Map<string, SlotRow>();
-  for (const s of slots) slotLookup.set(`${s.unit_id}-${s.slot_date}`, s);
+  for (const s of filteredSlots) slotLookup.set(`${s.unit_id}-${s.slot_date}`, s);
 
   const handleApplyAll = async () => {
     setApplying(true);
@@ -101,17 +110,12 @@ function ComparisonPage() {
         .eq("status", "pending");
       if (error) throw error;
       toast.success("All pending recommendations applied.");
-      await fetchAll(fromDate, toDate);
+      await fetchAll(filters);
     } catch (err: any) {
       toast.error(err.message ?? "Failed to apply recommendations");
     } finally {
       setApplying(false);
     }
-  };
-
-  const handleClear = () => {
-    setFromDate(DEFAULT_FROM);
-    setToDate(DEFAULT_TO);
   };
 
   return (
@@ -132,7 +136,7 @@ function ComparisonPage() {
             {applying ? "Applying…" : "Apply All Recommendations"}
           </button>
           <button
-            onClick={() => fetchAll(fromDate, toDate)}
+            onClick={() => fetchAll(filters)}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/10 disabled:opacity-50"
           >
@@ -142,8 +146,8 @@ function ComparisonPage() {
         </div>
       </div>
 
-      {/* Date range filter */}
-      <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToChange={setToDate} onClear={handleClear} />
+      {/* Filters */}
+      <DataFilters filters={filters} onFiltersChange={setFilters} />
 
       {/* Metric badges */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -182,32 +186,17 @@ function ComparisonPage() {
   );
 }
 
-function MetricBadge({
-  label,
-  value,
-  variant,
-}: {
-  label: string;
-  value: string;
-  variant: "muted" | "primary";
-}) {
+function MetricBadge({ label, value, variant }: { label: string; value: string; variant: "muted" | "primary" }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-xl font-bold ${variant === "primary" ? "text-primary" : "text-foreground"}`}>
-        {value}
-      </p>
+      <p className={`mt-1 text-xl font-bold ${variant === "primary" ? "text-primary" : "text-foreground"}`}>{value}</p>
     </div>
   );
 }
 
 function HeatmapPanel({
-  title,
-  unitIds,
-  unitMap,
-  slotLookup,
-  appliedUnits,
-  dates,
+  title, unitIds, unitMap, slotLookup, appliedUnits, dates,
 }: {
   title: string;
   unitIds: string[];
@@ -228,9 +217,7 @@ function HeatmapPanel({
               <tr>
                 <th className="py-1 px-2 text-left text-muted-foreground font-medium sticky left-0 bg-card z-10">Unit</th>
                 {dates.map((d) => (
-                  <th key={d} className="py-1 px-1 text-center text-muted-foreground font-medium whitespace-nowrap">
-                    {d.slice(5)}
-                  </th>
+                  <th key={d} className="py-1 px-1 text-center text-muted-foreground font-medium whitespace-nowrap">{d.slice(5)}</th>
                 ))}
               </tr>
             </thead>
