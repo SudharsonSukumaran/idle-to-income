@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Lightbulb, RefreshCw, Loader2, Sparkles, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { DateRangeFilter, DEFAULT_FROM, DEFAULT_TO } from "@/components/DateRangeFilter";
 
 export const Route = createFileRoute("/recommendations")({
   head: () => ({
@@ -30,20 +31,35 @@ function RecommendationsPage() {
   const [recs, setRecs] = useState<RecRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [fromDate, setFromDate] = useState(DEFAULT_FROM);
+  const [toDate, setToDate] = useState(DEFAULT_TO);
 
-  const fetchRecs = useCallback(async () => {
+  const fetchRecs = useCallback(async (from: string, to: string) => {
     setLoading(true);
-    const { data } = await supabase
-      .from("recommendations")
-      .select("*")
-      .order("estimated_lost_revenue", { ascending: false });
-    setRecs((data as RecRow[]) ?? []);
+    // Get unit_ids that have slots in the date range
+    const { data: slotData } = await supabase
+      .from("availability_slots")
+      .select("unit_id")
+      .gte("slot_date", from)
+      .lte("slot_date", to);
+    const unitIds = [...new Set((slotData ?? []).map((s: any) => s.unit_id).filter(Boolean))];
+
+    let recsData: RecRow[] = [];
+    if (unitIds.length > 0) {
+      const { data } = await supabase
+        .from("recommendations")
+        .select("*")
+        .in("unit_id", unitIds)
+        .order("estimated_lost_revenue", { ascending: false });
+      recsData = (data as RecRow[]) ?? [];
+    }
+    setRecs(recsData);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchRecs();
-  }, [fetchRecs]);
+    fetchRecs(fromDate, toDate);
+  }, [fetchRecs, fromDate, toDate]);
 
   const totalRecoverable = recs.reduce((s, r) => s + (r.estimated_recovered ?? 0), 0);
 
@@ -85,14 +101,13 @@ function RecommendationsPage() {
             .eq("id", rec.id);
         }
 
-        // 1-second delay between calls
         if (completed < pending.length) {
           await new Promise((r) => setTimeout(r, 1000));
         }
       }
 
       toast.success(`Generated AI analysis for ${completed} recommendation${completed !== 1 ? "s" : ""}.`);
-      await fetchRecs();
+      await fetchRecs(fromDate, toDate);
     } catch (err: any) {
       toast.error(err.message ?? "Generation failed");
     } finally {
@@ -106,8 +121,13 @@ function RecommendationsPage() {
       toast.error(error.message);
     } else {
       toast.success(`Recommendation ${status}.`);
-      await fetchRecs();
+      await fetchRecs(fromDate, toDate);
     }
+  };
+
+  const handleClear = () => {
+    setFromDate(DEFAULT_FROM);
+    setToDate(DEFAULT_TO);
   };
 
   return (
@@ -128,7 +148,7 @@ function RecommendationsPage() {
             {generating ? "Generating…" : "Generate AI Recommendations"}
           </button>
           <button
-            onClick={fetchRecs}
+            onClick={() => fetchRecs(fromDate, toDate)}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/10 disabled:opacity-50"
           >
@@ -137,6 +157,9 @@ function RecommendationsPage() {
           </button>
         </div>
       </div>
+
+      {/* Date range filter */}
+      <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToChange={setToDate} onClear={handleClear} />
 
       {/* Summary banner */}
       <div className="rounded-lg border border-border bg-card p-4 flex items-center gap-3">
@@ -188,7 +211,6 @@ function RecCard({
 
   return (
     <div className={`rounded-lg border border-border bg-card p-5 space-y-3 ${isActioned ? "opacity-60" : ""}`}>
-      {/* Top row: badges + unit */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${issueClass}`}>
           {rec.issue_type}
@@ -199,10 +221,8 @@ function RecCard({
         <span className="text-sm font-medium text-card-foreground ml-auto">{rec.unit_id}</span>
       </div>
 
-      {/* Description */}
       <p className="text-sm text-muted-foreground">{rec.description}</p>
 
-      {/* AI recommendation */}
       <div className="rounded-md border-l-4 border-[oklch(0.55_0.18_290)] bg-[oklch(0.55_0.18_290)]/5 px-4 py-3">
         <p className="text-sm text-card-foreground whitespace-pre-line">
           {rec.ai_recommendation ?? (
@@ -211,7 +231,6 @@ function RecCard({
         </p>
       </div>
 
-      {/* Revenue + actions */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4 text-sm">
           <span className="text-destructive font-semibold">

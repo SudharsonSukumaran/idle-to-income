@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { DateRangeFilter, DEFAULT_FROM, DEFAULT_TO } from "@/components/DateRangeFilter";
 
 export const Route = createFileRoute("/comparison")({
   head: () => ({
@@ -34,22 +35,19 @@ interface UnitRow {
   name: string;
 }
 
-const DATES = Array.from({ length: 10 }, (_, i) => {
-  const d = new Date(2026, 3, 14 + i);
-  return d.toISOString().split("T")[0];
-});
-
 function ComparisonPage() {
   const [slots, setSlots] = useState<SlotRow[]>([]);
   const [recs, setRecs] = useState<RecRow[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
+  const [fromDate, setFromDate] = useState(DEFAULT_FROM);
+  const [toDate, setToDate] = useState(DEFAULT_TO);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (from: string, to: string) => {
     setLoading(true);
     const [sRes, rRes, uRes] = await Promise.all([
-      supabase.from("availability_slots").select("id, unit_id, slot_date, status, is_fragment"),
+      supabase.from("availability_slots").select("id, unit_id, slot_date, status, is_fragment").gte("slot_date", from).lte("slot_date", to),
       supabase.from("recommendations").select("id, unit_id, status, estimated_recovered"),
       supabase.from("inventory_units").select("id, name"),
     ]);
@@ -60,8 +58,18 @@ function ComparisonPage() {
   }, []);
 
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    fetchAll(fromDate, toDate);
+  }, [fetchAll, fromDate, toDate]);
+
+  const dates = useMemo(() => {
+    const start = new Date(fromDate + "T00:00:00");
+    const end = new Date(toDate + "T00:00:00");
+    const arr: string[] = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      arr.push(d.toISOString().split("T")[0]);
+    }
+    return arr;
+  }, [fromDate, toDate]);
 
   // Metrics
   const total = slots.length || 1;
@@ -93,12 +101,17 @@ function ComparisonPage() {
         .eq("status", "pending");
       if (error) throw error;
       toast.success("All pending recommendations applied.");
-      await fetchAll();
+      await fetchAll(fromDate, toDate);
     } catch (err: any) {
       toast.error(err.message ?? "Failed to apply recommendations");
     } finally {
       setApplying(false);
     }
+  };
+
+  const handleClear = () => {
+    setFromDate(DEFAULT_FROM);
+    setToDate(DEFAULT_TO);
   };
 
   return (
@@ -119,7 +132,7 @@ function ComparisonPage() {
             {applying ? "Applying…" : "Apply All Recommendations"}
           </button>
           <button
-            onClick={fetchAll}
+            onClick={() => fetchAll(fromDate, toDate)}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/10 disabled:opacity-50"
           >
@@ -128,6 +141,9 @@ function ComparisonPage() {
           </button>
         </div>
       </div>
+
+      {/* Date range filter */}
+      <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromChange={setFromDate} onToChange={setToDate} onClear={handleClear} />
 
       {/* Metric badges */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -144,6 +160,7 @@ function ComparisonPage() {
           unitMap={unitMap}
           slotLookup={slotLookup}
           appliedUnits={new Set()}
+          dates={dates}
         />
         <HeatmapPanel
           title="After"
@@ -151,6 +168,7 @@ function ComparisonPage() {
           unitMap={unitMap}
           slotLookup={slotLookup}
           appliedUnits={appliedUnits}
+          dates={dates}
         />
       </div>
 
@@ -189,12 +207,14 @@ function HeatmapPanel({
   unitMap,
   slotLookup,
   appliedUnits,
+  dates,
 }: {
   title: string;
   unitIds: string[];
   unitMap: Map<string, string>;
   slotLookup: Map<string, SlotRow>;
   appliedUnits: Set<string>;
+  dates: string[];
 }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4 overflow-hidden">
@@ -207,7 +227,7 @@ function HeatmapPanel({
             <thead>
               <tr>
                 <th className="py-1 px-2 text-left text-muted-foreground font-medium sticky left-0 bg-card z-10">Unit</th>
-                {DATES.map((d) => (
+                {dates.map((d) => (
                   <th key={d} className="py-1 px-1 text-center text-muted-foreground font-medium whitespace-nowrap">
                     {d.slice(5)}
                   </th>
@@ -220,7 +240,7 @@ function HeatmapPanel({
                   <td className="py-1 px-2 font-medium text-card-foreground whitespace-nowrap sticky left-0 bg-card z-10">
                     {(unitMap.get(uid) ?? uid).slice(0, 10)}
                   </td>
-                  {DATES.map((date) => {
+                  {dates.map((date) => {
                     const slot = slotLookup.get(`${uid}-${date}`);
                     const cellColor = getCellColor(slot, appliedUnits);
                     return (
@@ -241,12 +261,7 @@ function HeatmapPanel({
 
 function getCellColor(slot: SlotRow | undefined, appliedUnits: Set<string>): string {
   if (!slot) return "bg-muted/30";
-
-  // In "After" panel: fragments with applied recommendations become green
-  if (slot.is_fragment && appliedUnits.has(slot.unit_id)) {
-    return "bg-emerald-500/80";
-  }
-
+  if (slot.is_fragment && appliedUnits.has(slot.unit_id)) return "bg-emerald-500/80";
   if (slot.is_fragment) return "bg-red-500/80";
   if (slot.status === "available") return "bg-emerald-500/80";
   return "bg-muted";
