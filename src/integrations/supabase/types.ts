@@ -16,9 +16,11 @@ export type Database = {
     Tables: {
       availability_slots: {
         Row: {
+          adult_count: number
           channel: string | null
           id: string
           is_fragment: boolean | null
+          party_size: number
           price: number | null
           slot_date: string | null
           source_name: string | null
@@ -26,9 +28,11 @@ export type Database = {
           unit_id: string | null
         }
         Insert: {
+          adult_count?: number
           channel?: string | null
           id?: string
           is_fragment?: boolean | null
+          party_size?: number
           price?: number | null
           slot_date?: string | null
           source_name?: string | null
@@ -36,9 +40,11 @@ export type Database = {
           unit_id?: string | null
         }
         Update: {
+          adult_count?: number
           channel?: string | null
           id?: string
           is_fragment?: boolean | null
+          party_size?: number
           price?: number | null
           slot_date?: string | null
           source_name?: string | null
