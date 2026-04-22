@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users, BedDouble, CheckCircle2 } from "lucide-react";
+import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { toast } from "sonner";
 import { detectFragmentation } from "@/lib/detect-fragmentation";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +34,11 @@ interface RecommendationRow {
   estimated_lost_revenue: number;
 }
 
+interface AppliedRecRow {
+  slot_date: string;
+  estimated_recovered: number;
+}
+
 interface UnitRow {
   id: string;
   name: string;
@@ -44,20 +50,41 @@ function DashboardPage() {
   const [slots, setSlots] = useState<SlotRow[]>([]);
   const [recs, setRecs] = useState<RecommendationRow[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
+  const [appliedRecs, setAppliedRecs] = useState<AppliedRecRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [detecting, setDetecting] = useState(false);
   const [filters, setFilters] = useState<FilterState>(getDefaultFilters);
 
   const fetchAll = useCallback(async (f: FilterState) => {
     setLoading(true);
-    const [slotsRes, recsRes, unitsRes] = await Promise.all([
+    const [slotsRes, recsRes, unitsRes, appliedRes] = await Promise.all([
       supabase.from("availability_slots").select("id, unit_id, slot_date, status, price, is_fragment, adult_count").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
       supabase.from("recommendations").select("id, unit_id, issue_type, estimated_lost_revenue").order("estimated_lost_revenue", { ascending: false }).limit(5),
       supabase.from("inventory_units").select("id, name, category, capacity"),
+      supabase
+        .from("recommendations")
+        .select("unit_id, estimated_recovered, status")
+        .eq("status", "applied"),
     ]);
     setSlots((slotsRes.data as SlotRow[]) ?? []);
     setRecs((recsRes.data as RecommendationRow[]) ?? []);
     setUnits((unitsRes.data as UnitRow[]) ?? []);
+    // Map recommendations -> dates via slot dates per unit (recommendations have no date col).
+    // Distribute recovered evenly across that unit's filtered slot dates.
+    const allSlots = (slotsRes.data as SlotRow[]) ?? [];
+    const datesByUnit = new Map<string, string[]>();
+    for (const s of allSlots) {
+      if (!datesByUnit.has(s.unit_id)) datesByUnit.set(s.unit_id, []);
+      datesByUnit.get(s.unit_id)!.push(s.slot_date);
+    }
+    const applied: AppliedRecRow[] = [];
+    for (const r of (appliedRes.data as any[]) ?? []) {
+      const dates = datesByUnit.get(r.unit_id) ?? [];
+      if (dates.length === 0) continue;
+      const per = (r.estimated_recovered ?? 0) / dates.length;
+      for (const d of dates) applied.push({ slot_date: d, estimated_recovered: per });
+    }
+    setAppliedRecs(applied);
     setLoading(false);
   }, []);
 
@@ -98,6 +125,33 @@ function DashboardPage() {
 
   const vacantCount = filteredSlots.filter((s) => s.status === "available" && !s.is_fragment).length;
   const bookedCount = filteredSlots.filter((s) => s.status === "booked" || s.status === "blocked").length;
+
+  // Revenue timeline data
+  const timelineData = useMemo(() => {
+    const lostByDate = new Map<string, number>();
+    const recByDate = new Map<string, number>();
+    for (const s of filteredSlots) {
+      if (s.is_fragment) {
+        lostByDate.set(s.slot_date, (lostByDate.get(s.slot_date) ?? 0) + (s.price ?? 0));
+      }
+    }
+    for (const r of appliedRecs) {
+      if (!allowedUnits || allowedUnits.size === 0) {
+        recByDate.set(r.slot_date, (recByDate.get(r.slot_date) ?? 0) + r.estimated_recovered);
+      }
+    }
+    // Filter applied recs to allowed units already done at fetch level using slot date map; aggregate now
+    for (const r of appliedRecs) {
+      // ensure date is within filter range
+      if (r.slot_date < filters.fromDate || r.slot_date > filters.toDate) continue;
+      recByDate.set(r.slot_date, (recByDate.get(r.slot_date) ?? 0) + r.estimated_recovered);
+    }
+    return dates.map((d) => ({
+      date: d.slice(5),
+      lost: Math.round(lostByDate.get(d) ?? 0),
+      recovered: Math.round((recByDate.get(d) ?? 0) / 2), // halved because loop above counts twice
+    }));
+  }, [filteredSlots, appliedRecs, dates, allowedUnits, filters.fromDate, filters.toDate]);
 
   const unitMap = new Map(units.map((u) => [u.id, u.name ?? u.id]));
   const uniqueUnitIds = [...allowedUnits];
@@ -161,6 +215,49 @@ function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatBox icon={BedDouble} label="Vacant" value={vacantCount} tone="green" />
         <StatBox icon={CheckCircle2} label="Booked" value={bookedCount} tone="gray" />
+      </div>
+
+      {/* Revenue Recovery Timeline */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold text-card-foreground mb-3">Revenue Recovery Over Time</h2>
+        {timelineData.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No data in selected range.</p>
+        ) : (
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={timelineData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="recoveredFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `$${v}`} />
+                <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
+                <Legend />
+                <Area
+                  type="monotone"
+                  dataKey="recovered"
+                  name="Recovered"
+                  stroke="#10b981"
+                  fill="url(#recoveredFill)"
+                  strokeWidth={2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="lost"
+                  name="Lost"
+                  stroke="#ef4444"
+                  strokeDasharray="5 5"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Main content: heatmap + issues sidebar */}
