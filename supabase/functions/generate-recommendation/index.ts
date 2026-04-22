@@ -29,17 +29,18 @@ serve(async (req) => {
 
     const prompt = `You are a senior hospitality revenue management consultant writing recommendations for a product demo.
 
-Analyze the following issue and return EXACTLY 3 lines in this format. Do not use markdown, bullet points, numbering, asterisks, or any extra text. Each line must be a complete, professional sentence.
+You are responding to an issue of type "${issue_type}". Tailor your recommendation specifically to this pattern:
+- orphan_night: focus on filling isolated single available nights between bookings.
+- sub_threshold: focus on hitting minimum capacity thresholds for group/tour inventory.
+- channel_mismatch: focus on reconciling availability across distribution channels.
+- overbooking: focus on resolving double-bookings, guest communication, and compensation/relocation.
+- room_misallocation: focus on swapping a single guest out of a double_bed room into a single_cot to free higher-value inventory.
 
-Action: <a clear, professional action statement that addresses the root cause of the issue>
-Change: <a specific operational or pricing change to implement, referencing the issue context>
-Recovery: <the expected dollar recovery amount with a short business justification>
+Return EXACTLY 3 lines in this format. Do not use markdown, bullet points, numbering, asterisks, or any extra text. Each line must be a complete, professional sentence and must reference the "${issue_type}" pattern explicitly.
 
-Style guide:
-- Write as if presenting to a hotel operations team.
-- Each line should be concise but meaningful — not a keyword or fragment.
-- Mention the issue type and context naturally within the sentences.
-- The Recovery line must reference the estimated lost revenue and explain how much can be recovered and why.
+Action: <a clear, professional action statement that addresses the root cause of this ${issue_type} issue>
+Change: <a specific operational or pricing change to implement for this ${issue_type} case>
+Recovery: <the expected dollar recovery amount with a short business justification tied to ${issue_type}>
 
 Issue type: ${issue_type}
 Description: ${description}
@@ -50,7 +51,7 @@ Action: Launch a targeted promotional offer to improve utilization for this unde
 Change: Consolidate low-demand dates and introduce a limited-time discount or bundled package to increase booking conversion.
 Recovery: Estimated recovery is $240 by improving occupancy across fragmented availability and reducing unsold capacity.
 
-Now generate your 3-line recommendation for the issue above. Output only those 3 lines, nothing else.`;
+Now generate your 3-line recommendation for the ${issue_type} issue above. Output only those 3 lines, nothing else.`;
 
     const fetchOptions = {
       method: "POST",

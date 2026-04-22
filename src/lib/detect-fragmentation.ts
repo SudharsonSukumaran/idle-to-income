@@ -6,6 +6,7 @@ interface SlotRow {
   slot_date: string;
   status: string;
   price: number;
+  party_size?: number;
 }
 
 interface ConflictRow {
@@ -20,6 +21,8 @@ interface ConflictRow {
 interface UnitRow {
   id: string;
   capacity: number;
+  room_type?: string;
+  base_price?: number;
 }
 
 interface NewRec {
@@ -35,7 +38,7 @@ export async function detectFragmentation(): Promise<number> {
   // Step 1 — fetch all slots
   const { data: slotsRaw, error: sErr } = await supabase
     .from("availability_slots")
-    .select("id, unit_id, slot_date, status, price")
+    .select("id, unit_id, slot_date, status, price, party_size")
     .order("unit_id")
     .order("slot_date");
   if (sErr) throw sErr;
@@ -81,8 +84,10 @@ export async function detectFragmentation(): Promise<number> {
   }
 
   // Pattern 2 — Sub-threshold (tour units)
-  const { data: unitsRaw } = await supabase.from("inventory_units").select("id, capacity");
-  const unitsMap = new Map((unitsRaw as UnitRow[] ?? []).map((u) => [u.id, u.capacity]));
+  const { data: unitsRaw } = await supabase.from("inventory_units").select("id, capacity, room_type, base_price");
+  const unitsList = (unitsRaw as UnitRow[]) ?? [];
+  const unitsMap = new Map(unitsList.map((u) => [u.id, u.capacity]));
+  const unitInfoMap = new Map(unitsList.map((u) => [u.id, u]));
 
   for (const [unitId, group] of unitGroups) {
     if (!unitId.includes("tour")) continue;
@@ -115,6 +120,59 @@ export async function detectFragmentation(): Promise<number> {
         estimated_recovered: 130,
       });
     }
+  }
+
+  // Pattern 4 — Overbooking (same unit + date with 2+ booked rows)
+  const overbookMap = new Map<string, SlotRow[]>();
+  for (const s of slots) {
+    if (s.status !== "booked") continue;
+    const key = `${s.unit_id}|${s.slot_date}`;
+    if (!overbookMap.has(key)) overbookMap.set(key, []);
+    overbookMap.get(key)!.push(s);
+  }
+  for (const [, group] of overbookMap) {
+    if (group.length >= 2) {
+      const s = group[0];
+      newRecs.push({
+        unit_id: s.unit_id,
+        issue_type: "overbooking",
+        severity: "high",
+        description: `${s.unit_id} is double-booked on ${s.slot_date} — two confirmed reservations for the same slot.`,
+        estimated_lost_revenue: (s.price ?? 0) * 2,
+        estimated_recovered: 0,
+      });
+    }
+  }
+
+  // Pattern 5 — Room misallocation (party_size = 1 in a double_bed)
+  // Average price by room_type for delta calculation
+  const priceByType = new Map<string, number[]>();
+  for (const s of slots) {
+    const u = unitInfoMap.get(s.unit_id);
+    if (!u?.room_type) continue;
+    if (!priceByType.has(u.room_type)) priceByType.set(u.room_type, []);
+    priceByType.get(u.room_type)!.push(s.price ?? 0);
+  }
+  const avgByType = new Map<string, number>();
+  for (const [t, arr] of priceByType) {
+    const avg = arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    avgByType.set(t, avg);
+  }
+  for (const s of slots) {
+    const u = unitInfoMap.get(s.unit_id);
+    if (!u || u.room_type !== "double_bed") continue;
+    if ((s.party_size ?? 1) !== 1) continue;
+    const doublePrice = avgByType.get("double_bed") ?? (s.price ?? 0);
+    const singlePrice = avgByType.get("single_cot") ?? doublePrice;
+    const delta = Math.max(0, doublePrice - singlePrice);
+    newRecs.push({
+      unit_id: s.unit_id,
+      issue_type: "room_misallocation",
+      severity: "medium",
+      description: `${s.unit_id} is a double_bed room allocated to a single guest — recommend swap to single_cot.`,
+      estimated_lost_revenue: delta,
+      estimated_recovered: delta,
+    });
   }
 
   // Update fragment flags

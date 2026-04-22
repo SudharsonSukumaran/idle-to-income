@@ -68,6 +68,7 @@ export type Database = {
           category: string | null
           id: string
           name: string | null
+          room_type: string
         }
         Insert: {
           base_price?: number | null
@@ -75,6 +76,7 @@ export type Database = {
           category?: string | null
           id: string
           name?: string | null
+          room_type?: string
         }
         Update: {
           base_price?: number | null
@@ -82,6 +84,7 @@ export type Database = {
           category?: string | null
           id?: string
           name?: string | null
+          room_type?: string
         }
         Relationships: []
       }
