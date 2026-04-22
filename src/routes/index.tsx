@@ -136,22 +136,15 @@ function DashboardPage() {
       }
     }
     for (const r of appliedRecs) {
-      if (!allowedUnits || allowedUnits.size === 0) {
-        recByDate.set(r.slot_date, (recByDate.get(r.slot_date) ?? 0) + r.estimated_recovered);
-      }
-    }
-    // Filter applied recs to allowed units already done at fetch level using slot date map; aggregate now
-    for (const r of appliedRecs) {
-      // ensure date is within filter range
       if (r.slot_date < filters.fromDate || r.slot_date > filters.toDate) continue;
       recByDate.set(r.slot_date, (recByDate.get(r.slot_date) ?? 0) + r.estimated_recovered);
     }
     return dates.map((d) => ({
       date: d.slice(5),
       lost: Math.round(lostByDate.get(d) ?? 0),
-      recovered: Math.round((recByDate.get(d) ?? 0) / 2), // halved because loop above counts twice
+      recovered: Math.round(recByDate.get(d) ?? 0),
     }));
-  }, [filteredSlots, appliedRecs, dates, allowedUnits, filters.fromDate, filters.toDate]);
+  }, [filteredSlots, appliedRecs, dates, filters.fromDate, filters.toDate]);
 
   const unitMap = new Map(units.map((u) => [u.id, u.name ?? u.id]));
   const uniqueUnitIds = [...allowedUnits];
