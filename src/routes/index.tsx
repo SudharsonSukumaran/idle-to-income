@@ -23,6 +23,7 @@ interface SlotRow {
   status: string;
   price: number;
   is_fragment: boolean;
+  adult_count: number;
 }
 
 interface RecommendationRow {
@@ -36,6 +37,7 @@ interface UnitRow {
   id: string;
   name: string;
   category: string | null;
+  capacity: number | null;
 }
 
 function DashboardPage() {
@@ -49,9 +51,9 @@ function DashboardPage() {
   const fetchAll = useCallback(async (f: FilterState) => {
     setLoading(true);
     const [slotsRes, recsRes, unitsRes] = await Promise.all([
-      supabase.from("availability_slots").select("id, unit_id, slot_date, status, price, is_fragment").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
+      supabase.from("availability_slots").select("id, unit_id, slot_date, status, price, is_fragment, adult_count").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
       supabase.from("recommendations").select("id, unit_id, issue_type, estimated_lost_revenue").order("estimated_lost_revenue", { ascending: false }).limit(5),
-      supabase.from("inventory_units").select("id, name, category"),
+      supabase.from("inventory_units").select("id, name, category, capacity"),
     ]);
     setSlots((slotsRes.data as SlotRow[]) ?? []);
     setRecs((recsRes.data as RecommendationRow[]) ?? []);
@@ -87,6 +89,12 @@ function DashboardPage() {
   const fragmented = filteredSlots.filter((s) => s.is_fragment).length;
   const revenueAtRisk = filteredSlots.filter((s) => s.is_fragment).reduce((sum, s) => sum + (s.price ?? 0), 0);
   const totalRecs = filteredRecs.length;
+
+  // Avg occupancy = SUM(adult_count) / SUM(capacity) * 100
+  const capacityMap = new Map(units.map((u) => [u.id, u.capacity ?? 0]));
+  const sumAdults = filteredSlots.reduce((s, sl) => s + (sl.adult_count ?? 0), 0);
+  const sumCapacity = filteredSlots.reduce((s, sl) => s + (capacityMap.get(sl.unit_id) ?? 0), 0);
+  const avgOccupancy = sumCapacity > 0 ? (sumAdults / sumCapacity) * 100 : 0;
 
   const unitMap = new Map(units.map((u) => [u.id, u.name ?? u.id]));
   const uniqueUnitIds = [...allowedUnits];
@@ -138,11 +146,12 @@ function DashboardPage() {
       <DataFilters filters={filters} onFiltersChange={setFilters} />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard icon={LayoutGrid} label="Total Slots" value={totalSlots} />
         <KpiCard icon={AlertTriangle} label="Fragmented" value={fragmented} variant="red" />
         <KpiCard icon={DollarSign} label="Revenue at Risk ($)" value={`$${revenueAtRisk.toLocaleString()}`} variant="amber" />
         <KpiCard icon={Lightbulb} label="AI Recommendations" value={totalRecs} variant="green" />
+        <KpiCard icon={Users} label="Avg Occupancy %" value={`${avgOccupancy.toFixed(1)}%`} variant="blue" />
       </div>
 
       {/* Main content: heatmap + issues sidebar */}
@@ -242,7 +251,7 @@ function KpiCard({
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
-  variant?: "red" | "amber" | "green";
+  variant?: "red" | "amber" | "green" | "blue";
 }) {
   const iconColor =
     variant === "red"
@@ -251,7 +260,9 @@ function KpiCard({
         ? "text-amber-500"
         : variant === "green"
           ? "text-primary"
-          : "text-muted-foreground";
+          : variant === "blue"
+            ? "text-blue-500"
+            : "text-muted-foreground";
 
   const valueColor =
     variant === "red"
@@ -260,7 +271,9 @@ function KpiCard({
         ? "text-amber-500"
         : variant === "green"
           ? "text-primary"
-          : "text-foreground";
+          : variant === "blue"
+            ? "text-blue-500"
+            : "text-foreground";
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">

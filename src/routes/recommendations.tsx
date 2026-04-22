@@ -32,9 +32,15 @@ interface UnitRow {
   category: string | null;
 }
 
+interface UnitPartyInfo {
+  party_size: number;
+  adult_count: number;
+}
+
 function RecommendationsPage() {
   const [recs, setRecs] = useState<RecRow[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
+  const [partyByUnit, setPartyByUnit] = useState<Map<string, UnitPartyInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [filters, setFilters] = useState<FilterState>(getDefaultFilters);
@@ -42,10 +48,22 @@ function RecommendationsPage() {
   const fetchRecs = useCallback(async (f: FilterState) => {
     setLoading(true);
     const [slotRes, unitRes] = await Promise.all([
-      supabase.from("availability_slots").select("unit_id").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
+      supabase.from("availability_slots").select("unit_id, party_size, adult_count").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
       supabase.from("inventory_units").select("id, category"),
     ]);
-    const unitIds = [...new Set((slotRes.data ?? []).map((s: any) => s.unit_id).filter(Boolean))];
+    const slotData = (slotRes.data ?? []) as any[];
+    const unitIds = [...new Set(slotData.map((s) => s.unit_id).filter(Boolean))];
+    // Aggregate max party_size and adult_count per unit
+    const partyMap = new Map<string, UnitPartyInfo>();
+    for (const s of slotData) {
+      if (!s.unit_id) continue;
+      const existing = partyMap.get(s.unit_id) ?? { party_size: 0, adult_count: 0 };
+      partyMap.set(s.unit_id, {
+        party_size: Math.max(existing.party_size, s.party_size ?? 1),
+        adult_count: Math.max(existing.adult_count, s.adult_count ?? 1),
+      });
+    }
+    setPartyByUnit(partyMap);
     setUnits((unitRes.data as UnitRow[]) ?? []);
 
     let recsData: RecRow[] = [];
@@ -184,7 +202,7 @@ function RecommendationsPage() {
       ) : (
         <div className="space-y-4">
           {filteredRecs.map((rec) => (
-            <RecCard key={rec.id} rec={rec} onAction={handleAction} />
+            <RecCard key={rec.id} rec={rec} party={partyByUnit.get(rec.unit_id)} onAction={handleAction} />
           ))}
         </div>
       )}
@@ -194,9 +212,11 @@ function RecommendationsPage() {
 
 function RecCard({
   rec,
+  party,
   onAction,
 }: {
   rec: RecRow;
+  party?: UnitPartyInfo;
   onAction: (id: string, status: "applied" | "dismissed") => void;
 }) {
   const severityClass =
@@ -229,6 +249,17 @@ function RecCard({
       </div>
 
       <p className="text-sm text-muted-foreground">{rec.description}</p>
+
+      {party && (
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5">
+            Party: <span className="ml-1 font-semibold text-card-foreground">{party.party_size}</span>
+          </span>
+          <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5">
+            Adults: <span className="ml-1 font-semibold text-card-foreground">{party.adult_count}</span>
+          </span>
+        </div>
+      )}
 
       <div className="rounded-md border-l-4 border-[oklch(0.55_0.18_290)] bg-[oklch(0.55_0.18_290)]/5 px-4 py-3">
         <p className="text-sm text-card-foreground whitespace-pre-line">
