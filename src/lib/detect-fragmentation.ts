@@ -175,6 +175,28 @@ export async function detectFragmentation(): Promise<number> {
     });
   }
 
+  // Pattern 6 — Underutilised (booked/total < 50% per unit over selected period)
+  for (const [unitId, group] of unitGroups) {
+    const totalDays = group.length;
+    if (totalDays === 0) continue;
+    const bookedDays = group.filter((s) => s.status === "booked").length;
+    const ratio = bookedDays / totalDays;
+    if (ratio < 0.5) {
+      const pct = Math.round(ratio * 100);
+      const avgPrice =
+        group.reduce((sum, s) => sum + (s.price ?? 0), 0) / totalDays;
+      const lost = (totalDays - bookedDays) * avgPrice;
+      newRecs.push({
+        unit_id: unitId,
+        issue_type: "underutilised",
+        severity: "low",
+        description: `${unitId} is only ${pct}% utilised over the selected period — consider promotional pricing or package bundling.`,
+        estimated_lost_revenue: lost,
+        estimated_recovered: lost * 0.6,
+      });
+    }
+  }
+
   // Update fragment flags
   for (const id of fragmentIds) {
     await supabase.from("availability_slots").update({ is_fragment: true }).eq("id", id);
