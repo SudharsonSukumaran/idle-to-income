@@ -22,6 +22,8 @@ const FIELD_HINTS: Record<string, string[]> = {
   status: ["status", "avail", "available", "free"],
   price: ["rate", "price", "adr", "amount", "cost"],
   channel: ["channel", "platform", "source", "via"],
+  partySize: ["party", "party_size", "guests", "pax", "people"],
+  adultCount: ["adult", "adults", "adult_count"],
 };
 
 function bestMatch(headers: string[], hints: string[]): string {
@@ -80,6 +82,8 @@ function UploadPage() {
     status: "",
     price: "",
     channel: "",
+    partySize: "",
+    adultCount: "",
   });
   const [saving, setSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -123,6 +127,8 @@ function UploadPage() {
       status: bestMatch(hdrs, FIELD_HINTS.status),
       price: bestMatch(hdrs, FIELD_HINTS.price),
       channel: bestMatch(hdrs, FIELD_HINTS.channel),
+      partySize: bestMatch(hdrs, FIELD_HINTS.partySize),
+      adultCount: bestMatch(hdrs, FIELD_HINTS.adultCount),
     });
   }, []);
 
@@ -165,6 +171,8 @@ function UploadPage() {
         channel: mapping.channel ? String(row[mapping.channel] ?? "").toLowerCase() || "direct" : "direct",
         source_name: sourceName.trim(),
         is_fragment: false,
+        party_size: mapping.partySize ? parseInt(String(row[mapping.partySize])) || 1 : 1,
+        adult_count: mapping.adultCount ? parseInt(String(row[mapping.adultCount])) || 1 : 1,
       }));
 
       const valid = records.filter((r) => r.unit_id && r.slot_date);
@@ -193,13 +201,15 @@ function UploadPage() {
   };
 
   const previewRows = rows.slice(0, 5);
-  const mappedFields = ["unitName", "date", "status", "price", "channel"] as const;
+  const mappedFields = ["unitName", "date", "status", "price", "channel", "partySize", "adultCount"] as const;
   const fieldLabels: Record<string, string> = {
     unitName: "Unit Name",
     date: "Date",
     status: "Status",
     price: "Price",
     channel: "Channel",
+    partySize: "Party Size",
+    adultCount: "Adult Count",
   };
 
   return (
@@ -351,6 +361,8 @@ function UploadPage() {
                     <td className="py-2 px-3 text-card-foreground">{mapping.status ? normalizeStatus(row[mapping.status]) : "—"}</td>
                     <td className="py-2 px-3 text-card-foreground">{mapping.price ? String(parseFloat(String(row[mapping.price])) || 0) : "—"}</td>
                     <td className="py-2 px-3 text-card-foreground">{mapping.channel ? String(row[mapping.channel] ?? "direct").toLowerCase() : "—"}</td>
+                    <td className="py-2 px-3 text-card-foreground">{mapping.partySize ? String(parseInt(String(row[mapping.partySize])) || 1) : "1"}</td>
+                    <td className="py-2 px-3 text-card-foreground">{mapping.adultCount ? String(parseInt(String(row[mapping.adultCount])) || 1) : "1"}</td>
                   </tr>
                 ))}
               </tbody>
