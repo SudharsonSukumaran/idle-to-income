@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users } from "lucide-react";
+import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users, BedDouble, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { detectFragmentation } from "@/lib/detect-fragmentation";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,6 +96,9 @@ function DashboardPage() {
   const sumCapacity = filteredSlots.reduce((s, sl) => s + (capacityMap.get(sl.unit_id) ?? 0), 0);
   const avgOccupancy = sumCapacity > 0 ? (sumAdults / sumCapacity) * 100 : 0;
 
+  const vacantCount = filteredSlots.filter((s) => s.status === "available" && !s.is_fragment).length;
+  const bookedCount = filteredSlots.filter((s) => s.status === "booked" || s.status === "blocked").length;
+
   const unitMap = new Map(units.map((u) => [u.id, u.name ?? u.id]));
   const uniqueUnitIds = [...allowedUnits];
 
@@ -152,6 +155,12 @@ function DashboardPage() {
         <KpiCard icon={DollarSign} label="Revenue at Risk ($)" value={`$${revenueAtRisk.toLocaleString()}`} variant="amber" />
         <KpiCard icon={Lightbulb} label="AI Recommendations" value={totalRecs} variant="green" />
         <KpiCard icon={Users} label="Avg Occupancy %" value={`${avgOccupancy.toFixed(1)}%`} variant="blue" />
+      </div>
+
+      {/* Vacant / Booked stat boxes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <StatBox icon={BedDouble} label="Vacant" value={vacantCount} tone="green" />
+        <StatBox icon={CheckCircle2} label="Booked" value={bookedCount} tone="gray" />
       </div>
 
       {/* Main content: heatmap + issues sidebar */}
@@ -301,6 +310,29 @@ function HeatmapCell({ slot }: { slot?: SlotRow }) {
 
   // booked or blocked
   return <div className="w-8 h-6 rounded-sm bg-muted" title={slot.status} />;
+}
+
+function StatBox({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
+  tone: "green" | "gray";
+}) {
+  const bg = tone === "green" ? "bg-emerald-500/15 border-emerald-500/30" : "bg-muted border-border";
+  const iconColor = tone === "green" ? "text-emerald-600" : "text-muted-foreground";
+  const valueColor = tone === "green" ? "text-emerald-700" : "text-foreground";
+  return (
+    <div className={`rounded-lg border p-4 flex flex-col items-center justify-center text-center ${bg}`}>
+      <Icon className={`h-5 w-5 mb-2 ${iconColor}`} />
+      <p className={`text-3xl font-bold ${valueColor}`}>{value}</p>
+      <span className="mt-1 text-xs font-medium text-muted-foreground">{label}</span>
+    </div>
+  );
 }
 
 function abbreviate(name: string): string {
