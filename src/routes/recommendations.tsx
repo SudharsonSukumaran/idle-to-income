@@ -231,6 +231,8 @@ function RecCard({
     fragment: "bg-destructive/10 text-destructive",
     pricing: "bg-amber-500/10 text-amber-600",
     overlap: "bg-[oklch(0.55_0.18_290)]/10 text-[oklch(0.55_0.18_290)]",
+    overbooking: "bg-red-900/15 text-red-800",
+    room_misallocation: "bg-orange-500/15 text-orange-600",
   };
   const issueClass = issueColors[rec.issue_type?.toLowerCase()] ?? "bg-muted text-muted-foreground";
 
