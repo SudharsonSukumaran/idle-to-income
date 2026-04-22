@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2 } from "lucide-react";
+import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { detectFragmentation } from "@/lib/detect-fragmentation";
 import { supabase } from "@/integrations/supabase/client";
