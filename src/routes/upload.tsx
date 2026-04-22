@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback, useRef } from "react";
-import { Upload, Database, Loader2, CheckCircle2, FileSpreadsheet, ArrowRight } from "lucide-react";
+import { Upload, Database, Loader2, CheckCircle2, FileSpreadsheet, ArrowRight, Cloud } from "lucide-react";
 import { loadDemoData } from "@/lib/demo-data";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { createClient } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/upload")({
   head: () => ({
@@ -89,6 +90,13 @@ function UploadPage() {
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // External DB state
+  const [extUrl, setExtUrl] = useState("");
+  const [extKey, setExtKey] = useState("");
+  const [extLoading, setExtLoading] = useState(false);
+  const [extResult, setExtResult] = useState<string | null>(null);
+  const [extError, setExtError] = useState<string | null>(null);
+
   const handleLoadDemo = async () => {
     setDemoLoading(true);
     setDemoSuccess(false);
@@ -100,6 +108,54 @@ function UploadPage() {
       setDemoError(err.message ?? "Failed to load demo data");
     } finally {
       setDemoLoading(false);
+    }
+  };
+
+  const handleFetchExternal = async () => {
+    setExtError(null);
+    setExtResult(null);
+    if (!extUrl.trim() || !extKey.trim()) {
+      setExtError("Please enter both URL and Anon Key.");
+      return;
+    }
+    if (!/^https?:\/\//.test(extUrl.trim())) {
+      setExtError("URL must start with https://");
+      return;
+    }
+    setExtLoading(true);
+    try {
+      const extClient = createClient(extUrl.trim(), extKey.trim());
+      const { data, error } = await extClient
+        .from("availability_slots")
+        .select("unit_id, slot_date, status, price, channel, is_fragment, party_size, adult_count");
+      if (error) throw error;
+      const rows = (data ?? []) as any[];
+      if (rows.length === 0) {
+        setExtResult("Connected, but no rows found in external availability_slots.");
+        return;
+      }
+      const records = rows.map((r) => ({
+        unit_id: r.unit_id,
+        slot_date: r.slot_date,
+        status: r.status ?? "available",
+        price: r.price ?? 0,
+        channel: r.channel ?? "direct",
+        is_fragment: r.is_fragment ?? false,
+        party_size: r.party_size ?? 1,
+        adult_count: r.adult_count ?? 1,
+        source_name: "External DB",
+      }));
+      for (let i = 0; i < records.length; i += 100) {
+        const batch = records.slice(i, i + 100);
+        const { error: insErr } = await supabase.from("availability_slots").insert(batch);
+        if (insErr) throw insErr;
+      }
+      setExtResult(`Imported ${records.length} rows from External DB.`);
+      toast.success(`Imported ${records.length} rows from External DB`);
+    } catch (err: any) {
+      setExtError(err.message ?? "Failed to fetch from external database");
+    } finally {
+      setExtLoading(false);
     }
   };
 
@@ -299,6 +355,58 @@ function UploadPage() {
           )}
           {demoError && <p className="text-sm text-destructive">{demoError}</p>}
         </div>
+      </div>
+
+      {/* Section: External DB */}
+      <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
+          <Cloud className="h-5 w-5 text-primary" />
+          Connect External Database
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Pull rows from a remote Supabase project's <code className="text-xs">availability_slots</code> table into this workspace.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-card-foreground mb-1">
+              Supabase Project URL
+            </label>
+            <input
+              type="text"
+              value={extUrl}
+              onChange={(e) => setExtUrl(e.target.value)}
+              placeholder="https://xxxxx.supabase.co"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-card-foreground mb-1">
+              Supabase Anon Key
+            </label>
+            <input
+              type="password"
+              value={extKey}
+              onChange={(e) => setExtKey(e.target.value)}
+              placeholder="eyJhbGciOi..."
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleFetchExternal}
+          disabled={extLoading}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+        >
+          {extLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cloud className="h-4 w-4" />}
+          {extLoading ? "Fetching…" : "Fetch Data"}
+        </button>
+        {extResult && (
+          <div className="flex items-center gap-2 text-sm text-primary">
+            <CheckCircle2 className="h-4 w-4" />
+            {extResult}
+          </div>
+        )}
+        {extError && <p className="text-sm text-destructive">{extError}</p>}
       </div>
 
       {/* Section 2: Column Mapping */}
