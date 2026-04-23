@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback, useRef } from "react";
-import { Upload, Database, Loader2, CheckCircle2, FileSpreadsheet, ArrowRight, Cloud } from "lucide-react";
+import { Upload, Database, Loader2, CheckCircle2, FileSpreadsheet, ArrowRight, Cloud, Files } from "lucide-react";
 import { loadDemoData } from "@/lib/demo-data";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -96,6 +96,80 @@ function UploadPage() {
   const [extLoading, setExtLoading] = useState(false);
   const [extResult, setExtResult] = useState<string | null>(null);
   const [extError, setExtError] = useState<string | null>(null);
+
+  // Multi-file upload state
+  const [multiFiles, setMultiFiles] = useState<File[]>([]);
+  const [multiSourceName, setMultiSourceName] = useState("Combined Sources");
+  const [multiLoading, setMultiLoading] = useState(false);
+  const [multiResult, setMultiResult] = useState<string | null>(null);
+  const [multiError, setMultiError] = useState<string | null>(null);
+  const multiRef = useRef<HTMLInputElement>(null);
+
+  const handleMultiUpload = async () => {
+    if (multiFiles.length === 0) {
+      setMultiError("Please select one or more .xlsx files first.");
+      return;
+    }
+    setMultiLoading(true);
+    setMultiError(null);
+    setMultiResult(null);
+    try {
+      const XLSX = await import("xlsx");
+      const allRecords: any[] = [];
+      for (const file of multiFiles) {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+        if (json.length === 0) continue;
+        const hdrs = Object.keys(json[0]);
+        // Auto-map per file (schema normalization)
+        const m = {
+          unitName: bestMatch(hdrs, FIELD_HINTS.unitName),
+          date: bestMatch(hdrs, FIELD_HINTS.date),
+          status: bestMatch(hdrs, FIELD_HINTS.status),
+          price: bestMatch(hdrs, FIELD_HINTS.price),
+          channel: bestMatch(hdrs, FIELD_HINTS.channel),
+          partySize: bestMatch(hdrs, FIELD_HINTS.partySize),
+          adultCount: bestMatch(hdrs, FIELD_HINTS.adultCount),
+        };
+        for (const row of json) {
+          const unit_id = toUnitId(row[m.unitName]);
+          const slot_date = normalizeDate(row[m.date]);
+          if (!unit_id || !slot_date) continue;
+          const occ = m.partySize ? parseInt(String(row[m.partySize])) || 1 : 1;
+          allRecords.push({
+            unit_id, slot_date,
+            status: normalizeStatus(row[m.status]),
+            price: parseFloat(String(row[m.price])) || 0,
+            channel: m.channel ? String(row[m.channel] ?? "").toLowerCase() || "direct" : "direct",
+            source_name: `${multiSourceName.trim() || "Combined"} / ${file.name}`,
+            is_fragment: false,
+            party_size: occ,
+            adult_count: m.adultCount ? parseInt(String(row[m.adultCount])) || occ : occ,
+            occupancy: occ,
+          });
+        }
+      }
+      if (allRecords.length === 0) {
+        setMultiError("No valid rows found across the selected files.");
+        return;
+      }
+      // Insert in batches
+      for (let i = 0; i < allRecords.length; i += 100) {
+        const batch = allRecords.slice(i, i + 100);
+        const { error } = await supabase.from("availability_slots").insert(batch);
+        if (error) throw error;
+      }
+      setMultiResult(`Combined ${multiFiles.length} file(s) → inserted ${allRecords.length} rows.`);
+      toast.success(`Combined ${multiFiles.length} files → ${allRecords.length} rows`);
+      setMultiFiles([]);
+    } catch (err: any) {
+      setMultiError(err.message ?? "Failed to combine files");
+    } finally {
+      setMultiLoading(false);
+    }
+  };
 
   const handleLoadDemo = async () => {
     setDemoLoading(true);
@@ -407,6 +481,68 @@ function UploadPage() {
           </div>
         )}
         {extError && <p className="text-sm text-destructive">{extError}</p>}
+      </div>
+
+      {/* Section: Multi-File Upload (combine multiple Excel sources) */}
+      <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
+          <Files className="h-5 w-5 text-primary" />
+          Multi-Source Upload (Combine Excels)
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Select multiple .xlsx files at once. Schemas are auto-normalised and merged into one unified table.
+        </p>
+        <div>
+          <label className="block text-sm font-medium text-card-foreground mb-1">
+            Combined source label
+          </label>
+          <input
+            type="text"
+            value={multiSourceName}
+            onChange={(e) => setMultiSourceName(e.target.value)}
+            placeholder="Combined Sources"
+            className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div
+          onClick={() => multiRef.current?.click()}
+          className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border hover:border-muted-foreground p-6 text-center cursor-pointer"
+        >
+          <Files className="h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            {multiFiles.length > 0
+              ? <span className="text-card-foreground font-medium">{multiFiles.length} file(s) selected</span>
+              : <>Click to select multiple .xlsx files</>}
+          </p>
+          <input
+            ref={multiRef}
+            type="file"
+            accept=".xlsx"
+            multiple
+            onChange={(e) => setMultiFiles(Array.from(e.target.files ?? []))}
+            className="hidden"
+          />
+        </div>
+        {multiFiles.length > 0 && (
+          <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-0.5">
+            {multiFiles.map((f) => <li key={f.name}>{f.name} <span className="opacity-60">({Math.round(f.size / 1024)} KB)</span></li>)}
+          </ul>
+        )}
+        <button
+          onClick={handleMultiUpload}
+          disabled={multiLoading || multiFiles.length === 0}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+        >
+          {multiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Files className="h-4 w-4" />}
+          {multiLoading ? "Combining…" : "Combine & Upload All"}
+        </button>
+        {multiResult && (
+          <div className="flex items-center gap-2 text-sm text-primary">
+            <CheckCircle2 className="h-4 w-4" />
+            {multiResult}
+          </div>
+        )}
+        {multiError && <p className="text-sm text-destructive">{multiError}</p>}
       </div>
 
       {/* Section 2: Column Mapping */}
