@@ -275,9 +275,11 @@ function DashboardPage() {
       </div>
 
       {/* Vacant / Booked stat boxes */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatBox icon={BedDouble} label="Vacant" value={vacantCount} tone="green" />
         <StatBox icon={CheckCircle2} label="Booked" value={bookedCount} tone="gray" />
+        <StatBox icon={TrendingDown} label="Under-utilised" value={underUtilized} tone="amber" sub={`-$${Math.round(underRevLoss).toLocaleString()} loss`} />
+        <StatBox icon={ShieldAlert} label="Overbooked (Risk)" value={overBooked} tone="red" />
       </div>
 
       {/* Revenue Recovery Timeline */}
@@ -464,12 +466,26 @@ function HeatmapCell({ slot }: { slot?: SlotRow }) {
     return <div className="w-8 h-6 rounded-sm bg-red-500/80" title="Fragment" />;
   }
 
+  // Color-code by issue_type
+  const issue = slot.issue_type;
+  const occ = slot.occupancy ?? slot.adult_count ?? 0;
+  const cap = slot.capacity ?? 1;
+  if (issue === "overbooking" || issue === "critical_mismatch" || occ > cap) {
+    return <div className="w-8 h-6 rounded-sm bg-red-600/90" title={`Critical: ${issue ?? "overbooked"}`} />;
+  }
+  if (issue === "under_utilized" || issue === "underbooking" || issue === "wrong_bed" || (slot.status === "booked" && occ < cap)) {
+    return <div className="w-8 h-6 rounded-sm bg-amber-400/80" title={`Under-utilised: ${issue ?? "low occupancy"}`} />;
+  }
+
   if (slot.status === "available") {
     return <div className="w-8 h-6 rounded-sm bg-emerald-500/80" title="Available" />;
   }
 
-  // booked or blocked
-  return <div className="w-8 h-6 rounded-sm bg-muted" title={slot.status} />;
+  // booked at full capacity = optimal green-700; blocked = gray
+  if (slot.status === "booked") {
+    return <div className="w-8 h-6 rounded-sm bg-emerald-700/80" title="Optimal booking" />;
+  }
+  return <div className="w-8 h-6 rounded-sm bg-muted" title={slot.status ?? "blocked"} />;
 }
 
 function StatBox({
@@ -477,20 +493,26 @@ function StatBox({
   label,
   value,
   tone,
+  sub,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: number;
-  tone: "green" | "gray";
+  tone: "green" | "gray" | "amber" | "red";
+  sub?: string;
 }) {
-  const bg = tone === "green" ? "bg-emerald-500/15 border-emerald-500/30" : "bg-muted border-border";
-  const iconColor = tone === "green" ? "text-emerald-600" : "text-muted-foreground";
-  const valueColor = tone === "green" ? "text-emerald-700" : "text-foreground";
+  const palette = {
+    green: { bg: "bg-emerald-500/15 border-emerald-500/30", icon: "text-emerald-600", val: "text-emerald-700" },
+    gray:  { bg: "bg-muted border-border", icon: "text-muted-foreground", val: "text-foreground" },
+    amber: { bg: "bg-amber-400/15 border-amber-400/40", icon: "text-amber-600", val: "text-amber-700" },
+    red:   { bg: "bg-red-500/15 border-red-500/40", icon: "text-red-600", val: "text-red-700" },
+  }[tone];
   return (
-    <div className={`rounded-lg border p-4 flex flex-col items-center justify-center text-center ${bg}`}>
-      <Icon className={`h-5 w-5 mb-2 ${iconColor}`} />
-      <p className={`text-3xl font-bold ${valueColor}`}>{value}</p>
+    <div className={`rounded-lg border p-4 flex flex-col items-center justify-center text-center ${palette.bg}`}>
+      <Icon className={`h-5 w-5 mb-2 ${palette.icon}`} />
+      <p className={`text-3xl font-bold ${palette.val}`}>{value}</p>
       <span className="mt-1 text-xs font-medium text-muted-foreground">{label}</span>
+      {sub && <span className="mt-0.5 text-[10px] text-muted-foreground">{sub}</span>}
     </div>
   );
 }
