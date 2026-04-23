@@ -12,6 +12,8 @@ export const DEFAULT_TO = "2026-04-23";
 
 export type AssetGroup = "all" | "rooms" | "spa" | "tables" | "tour";
 export type CategoryType = "all" | "room" | "spa_slot" | "table" | "tour_seat";
+export type RoomTypeFilter = "all" | "Deluxe" | "Standard" | "Suite" | "2X" | "3X";
+export type OccupancyFilter = "all" | "1" | "2" | "3+";
 
 const ASSET_GROUP_LABELS: Record<AssetGroup, string> = {
   all: "All Groups",
@@ -29,6 +31,14 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   tour_seat: "tour_seat",
 };
 
+const ROOM_TYPE_LABELS: Record<RoomTypeFilter, string> = {
+  all: "All Rooms", Deluxe: "Deluxe", Standard: "Standard",
+  Suite: "Suite", "2X": "2X", "3X": "3X",
+};
+const OCCUPANCY_LABELS: Record<OccupancyFilter, string> = {
+  all: "Any Occupancy", "1": "1 guest", "2": "2 guests", "3+": "3+ guests",
+};
+
 /** Prefix-based filter for Asset Group dropdown */
 export const ASSET_GROUP_PREFIXES: Record<Exclude<AssetGroup, "all">, string> = {
   rooms: "room",
@@ -42,6 +52,8 @@ export interface FilterState {
   toDate: string;
   assetGroup: AssetGroup;
   categoryType: CategoryType;
+  roomType: RoomTypeFilter;
+  occupancy: OccupancyFilter;
 }
 
 interface DataFiltersProps {
@@ -55,6 +67,8 @@ export function getDefaultFilters(): FilterState {
     toDate: DEFAULT_TO,
     assetGroup: "all",
     categoryType: "all",
+    roomType: "all",
+    occupancy: "all",
   };
 }
 
@@ -63,7 +77,9 @@ export function DataFilters({ filters, onFiltersChange }: DataFiltersProps) {
     filters.fromDate === DEFAULT_FROM &&
     filters.toDate === DEFAULT_TO &&
     filters.assetGroup === "all" &&
-    filters.categoryType === "all";
+    filters.categoryType === "all" &&
+    filters.roomType === "all" &&
+    filters.occupancy === "all";
 
   const update = (partial: Partial<FilterState>) =>
     onFiltersChange({ ...filters, ...partial });
@@ -126,6 +142,38 @@ export function DataFilters({ filters, onFiltersChange }: DataFiltersProps) {
                 <SelectItem key={val} value={val}>
                   {label}
                 </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Room Type */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-medium text-muted-foreground">Room</label>
+          <Select
+            value={filters.roomType}
+            onValueChange={(val) => update({ roomType: val as RoomTypeFilter })}
+          >
+            <SelectTrigger className="w-[130px] h-9 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {(Object.entries(ROOM_TYPE_LABELS) as [RoomTypeFilter, string][]).map(([val, label]) => (
+                <SelectItem key={val} value={val}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Occupancy */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-medium text-muted-foreground">Occupancy</label>
+          <Select
+            value={filters.occupancy}
+            onValueChange={(val) => update({ occupancy: val as OccupancyFilter })}
+          >
+            <SelectTrigger className="w-[140px] h-9 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {(Object.entries(OCCUPANCY_LABELS) as [OccupancyFilter, string][]).map(([val, label]) => (
+                <SelectItem key={val} value={val}>{label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
