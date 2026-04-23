@@ -17,11 +17,19 @@ export type Database = {
       availability_slots: {
         Row: {
           adult_count: number
+          available_rooms: number | null
+          available_shows: number | null
+          bed_type: string | null
+          capacity: number | null
           channel: string | null
+          fragment_score: number | null
           id: string
           is_fragment: boolean | null
+          issue_type: string | null
+          occupancy: number | null
           party_size: number
           price: number | null
+          room_type: string | null
           slot_date: string | null
           source_name: string | null
           status: string | null
@@ -29,11 +37,19 @@ export type Database = {
         }
         Insert: {
           adult_count?: number
+          available_rooms?: number | null
+          available_shows?: number | null
+          bed_type?: string | null
+          capacity?: number | null
           channel?: string | null
+          fragment_score?: number | null
           id?: string
           is_fragment?: boolean | null
+          issue_type?: string | null
+          occupancy?: number | null
           party_size?: number
           price?: number | null
+          room_type?: string | null
           slot_date?: string | null
           source_name?: string | null
           status?: string | null
@@ -41,11 +57,19 @@ export type Database = {
         }
         Update: {
           adult_count?: number
+          available_rooms?: number | null
+          available_shows?: number | null
+          bed_type?: string | null
+          capacity?: number | null
           channel?: string | null
+          fragment_score?: number | null
           id?: string
           is_fragment?: boolean | null
+          issue_type?: string | null
+          occupancy?: number | null
           party_size?: number
           price?: number | null
+          room_type?: string | null
           slot_date?: string | null
           source_name?: string | null
           status?: string | null
@@ -64,6 +88,7 @@ export type Database = {
       inventory_units: {
         Row: {
           base_price: number | null
+          bed_type: string | null
           capacity: number | null
           category: string | null
           id: string
@@ -72,6 +97,7 @@ export type Database = {
         }
         Insert: {
           base_price?: number | null
+          bed_type?: string | null
           capacity?: number | null
           category?: string | null
           id: string
@@ -80,6 +106,7 @@ export type Database = {
         }
         Update: {
           base_price?: number | null
+          bed_type?: string | null
           capacity?: number | null
           category?: string | null
           id?: string
