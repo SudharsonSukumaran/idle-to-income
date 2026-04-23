@@ -435,15 +435,15 @@ function UploadPage() {
       <div className="rounded-lg border border-border bg-card p-6 space-y-4">
         <h2 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
           <Cloud className="h-5 w-5 text-primary" />
-          Connect External Database
+          Connect External Data Source
         </h2>
         <p className="text-sm text-muted-foreground">
-          Pull rows from a remote Supabase project's <code className="text-xs">availability_slots</code> table into this workspace.
+          Connect to external data sources such as databases, APIs, or data warehouses. (Currently supports Supabase for demo)
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-card-foreground mb-1">
-              Supabase Project URL
+              Data Source URL
             </label>
             <input
               type="text"
@@ -455,7 +455,7 @@ function UploadPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-card-foreground mb-1">
-              Supabase Anon Key
+              Access Key
             </label>
             <input
               type="password"
@@ -466,6 +466,9 @@ function UploadPage() {
             />
           </div>
         </div>
+        <p className="text-xs text-muted-foreground italic">
+          Demo supports Supabase. Architecture is extensible to other sources.
+        </p>
         <button
           onClick={handleFetchExternal}
           disabled={extLoading}
