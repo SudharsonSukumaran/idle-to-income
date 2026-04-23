@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users, BedDouble, CheckCircle2 } from "lucide-react";
+import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users, BedDouble, CheckCircle2, TrendingDown, ShieldAlert } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { toast } from "sonner";
 import { detectFragmentation } from "@/lib/detect-fragmentation";
 import { supabase } from "@/integrations/supabase/client";
+import { loadDemoData } from "@/lib/demo-data";
 import { DataFilters, getDefaultFilters, applyUnitFilters, type FilterState } from "@/components/DataFilters";
 
 export const Route = createFileRoute("/")({
@@ -25,6 +26,11 @@ interface SlotRow {
   price: number;
   is_fragment: boolean;
   adult_count: number;
+  occupancy?: number | null;
+  capacity?: number | null;
+  bed_type?: string | null;
+  room_type?: string | null;
+  issue_type?: string | null;
 }
 
 interface RecommendationRow {
@@ -58,7 +64,7 @@ function DashboardPage() {
   const fetchAll = useCallback(async (f: FilterState) => {
     setLoading(true);
     const [slotsRes, recsRes, unitsRes, appliedRes] = await Promise.all([
-      supabase.from("availability_slots").select("id, unit_id, slot_date, status, price, is_fragment, adult_count").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
+      supabase.from("availability_slots").select("id, unit_id, slot_date, status, price, is_fragment, adult_count, occupancy, capacity, bed_type, room_type, issue_type").gte("slot_date", f.fromDate).lte("slot_date", f.toDate),
       supabase.from("recommendations").select("id, unit_id, issue_type, estimated_lost_revenue").order("estimated_lost_revenue", { ascending: false }).limit(5),
       supabase.from("inventory_units").select("id, name, category, capacity"),
       supabase
@@ -88,9 +94,33 @@ function DashboardPage() {
     setLoading(false);
   }, []);
 
+  // Auto-seed demo data on first launch if DB is empty
+  const [seeded, setSeeded] = useState(false);
   useEffect(() => {
-    fetchAll(filters);
-  }, [fetchAll, filters]);
+    let cancelled = false;
+    (async () => {
+      if (seeded) {
+        await fetchAll(filters);
+        return;
+      }
+      const { count } = await supabase
+        .from("availability_slots")
+        .select("id", { count: "exact", head: true });
+      if (cancelled) return;
+      if ((count ?? 0) === 0) {
+        try {
+          await loadDemoData();
+          toast.success("Demo data loaded automatically");
+        } catch (e: any) {
+          console.error("Auto-seed failed", e);
+        }
+      }
+      setSeeded(true);
+      await fetchAll(filters);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, seeded]);
 
   // Apply unit filters
   const allUnitIds = useMemo(() => [...new Set(slots.map((s) => s.unit_id))], [slots]);
@@ -100,6 +130,21 @@ function DashboardPage() {
   );
 
   const filteredSlots = useMemo(() => slots.filter((s) => allowedUnits.has(s.unit_id)), [slots, allowedUnits]);
+
+  // Apply room_type + occupancy filters
+  const finalSlots = useMemo(() => {
+    return filteredSlots.filter((s) => {
+      if (filters.roomType !== "all" && s.room_type !== filters.roomType) return false;
+      if (filters.occupancy !== "all") {
+        const occ = s.occupancy ?? s.adult_count ?? 0;
+        if (filters.occupancy === "1" && occ !== 1) return false;
+        if (filters.occupancy === "2" && occ !== 2) return false;
+        if (filters.occupancy === "3+" && occ < 3) return false;
+      }
+      return true;
+    });
+  }, [filteredSlots, filters.roomType, filters.occupancy]);
+
   const filteredRecs = useMemo(() => recs.filter((r) => allowedUnits.has(r.unit_id)), [recs, allowedUnits]);
 
   const dates = useMemo(() => {
@@ -112,25 +157,50 @@ function DashboardPage() {
     return arr;
   }, [filters.fromDate, filters.toDate]);
 
-  const totalSlots = filteredSlots.length;
-  const fragmented = filteredSlots.filter((s) => s.is_fragment).length;
-  const revenueAtRisk = filteredSlots.filter((s) => s.is_fragment).reduce((sum, s) => sum + (s.price ?? 0), 0);
+  const totalSlots = finalSlots.length;
+  const fragmented = finalSlots.filter((s) => s.is_fragment).length;
+  const revenueAtRisk = finalSlots.filter((s) => s.is_fragment).reduce((sum, s) => sum + (s.price ?? 0), 0);
   const totalRecs = filteredRecs.length;
 
   // Avg occupancy = SUM(adult_count) / SUM(capacity) * 100
   const capacityMap = new Map(units.map((u) => [u.id, u.capacity ?? 0]));
-  const sumAdults = filteredSlots.reduce((s, sl) => s + (sl.adult_count ?? 0), 0);
-  const sumCapacity = filteredSlots.reduce((s, sl) => s + (capacityMap.get(sl.unit_id) ?? 0), 0);
+  const sumAdults = finalSlots.reduce((s, sl) => s + (sl.occupancy ?? sl.adult_count ?? 0), 0);
+  const sumCapacity = finalSlots.reduce((s, sl) => s + (sl.capacity ?? capacityMap.get(sl.unit_id) ?? 0), 0);
   const avgOccupancy = sumCapacity > 0 ? (sumAdults / sumCapacity) * 100 : 0;
 
-  const vacantCount = filteredSlots.filter((s) => s.status === "available" && !s.is_fragment).length;
-  const bookedCount = filteredSlots.filter((s) => s.status === "booked" || s.status === "blocked").length;
+  const vacantCount = finalSlots.filter((s) => s.status === "available" && !s.is_fragment).length;
+  const bookedCount = finalSlots.filter((s) => s.status === "booked" || s.status === "blocked").length;
+
+  // Under/over booking metrics
+  const underUtilized = finalSlots.filter((s) => {
+    if (s.status !== "booked") return false;
+    const occ = s.occupancy ?? s.adult_count ?? 0;
+    const cap = s.capacity ?? 1;
+    return occ < cap || s.issue_type === "under_utilized" || s.issue_type === "underbooking";
+  }).length;
+  const overBooked = finalSlots.filter((s) => {
+    const occ = s.occupancy ?? s.adult_count ?? 0;
+    const cap = s.capacity ?? 1;
+    return s.issue_type === "overbooking" || occ > cap;
+  }).length;
+  const underRevLoss = finalSlots
+    .filter((s) => {
+      const occ = s.occupancy ?? s.adult_count ?? 0;
+      const cap = s.capacity ?? 1;
+      return s.status === "booked" && occ < cap;
+    })
+    .reduce((sum, s) => {
+      const occ = s.occupancy ?? s.adult_count ?? 0;
+      const cap = s.capacity ?? 1;
+      const perPerson = (s.price ?? 0) / Math.max(cap, 1);
+      return sum + perPerson * (cap - occ);
+    }, 0);
 
   // Revenue timeline data
   const timelineData = useMemo(() => {
     const lostByDate = new Map<string, number>();
     const recByDate = new Map<string, number>();
-    for (const s of filteredSlots) {
+    for (const s of finalSlots) {
       if (s.is_fragment) {
         lostByDate.set(s.slot_date, (lostByDate.get(s.slot_date) ?? 0) + (s.price ?? 0));
       }
@@ -144,13 +214,13 @@ function DashboardPage() {
       lost: Math.round(lostByDate.get(d) ?? 0),
       recovered: Math.round(recByDate.get(d) ?? 0),
     }));
-  }, [filteredSlots, appliedRecs, dates, filters.fromDate, filters.toDate]);
+  }, [finalSlots, appliedRecs, dates, filters.fromDate, filters.toDate]);
 
   const unitMap = new Map(units.map((u) => [u.id, u.name ?? u.id]));
   const uniqueUnitIds = [...allowedUnits];
 
   const slotLookup = new Map<string, SlotRow>();
-  for (const s of filteredSlots) {
+  for (const s of finalSlots) {
     slotLookup.set(`${s.unit_id}-${s.slot_date}`, s);
   }
 
