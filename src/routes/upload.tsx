@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback, useRef } from "react";
-import { Upload, Database, Loader2, CheckCircle2, FileSpreadsheet, ArrowRight, Cloud, Files } from "lucide-react";
+import { Upload, Database, Loader2, CheckCircle2, FileSpreadsheet, ArrowRight, Cloud, Files, FileText, Boxes, Radio, Cpu } from "lucide-react";
 import { loadDemoData } from "@/lib/demo-data";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -498,6 +498,25 @@ function UploadPage() {
         <p className="text-sm text-muted-foreground">
           Supports files, databases, APIs, and future integrations. Select multiple files at once — schemas are auto-normalised and merged into one unified table.
         </p>
+
+        {/* Multi-source data strategy flow (UI only) */}
+        <div className="rounded-md border border-dashed border-border bg-muted/30 p-4">
+          <p className="text-xs font-semibold text-muted-foreground mb-3">Data ingestion roadmap</p>
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <FlowChip icon={FileText} label="Files" sub="xlsx · csv" tone="active" />
+            <FlowArrow />
+            <FlowChip icon={Database} label="External DBs" sub="Supabase · Postgres" tone="active" />
+            <FlowArrow />
+            <FlowChip icon={Cloud} label="APIs" sub="REST · GraphQL" tone="soon" />
+            <FlowArrow />
+            <FlowChip icon={Boxes} label="Vector Store" sub="embeddings" tone="soon" />
+            <FlowArrow />
+            <FlowChip icon={Radio} label="Live Streams" sub="Kafka · webhooks" tone="future" />
+            <FlowArrow />
+            <FlowChip icon={Cpu} label="AI Agents" sub="autonomous sync" tone="future" />
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-card-foreground mb-1">
             Combined source label
@@ -639,4 +658,40 @@ function UploadPage() {
       )}
     </div>
   );
+}
+
+function FlowChip({
+  icon: Icon,
+  label,
+  sub,
+  tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  sub: string;
+  tone: "active" | "soon" | "future";
+}) {
+  const palette = {
+    active: "border-primary/40 bg-primary/10 text-primary",
+    soon: "border-amber-500/40 bg-amber-500/10 text-amber-700",
+    future: "border-border bg-card text-muted-foreground",
+  }[tone];
+  const tag =
+    tone === "active" ? "Live" : tone === "soon" ? "Soon" : "Future";
+  return (
+    <div className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 ${palette}`}>
+      <Icon className="h-4 w-4" />
+      <div className="leading-tight">
+        <p className="text-xs font-semibold">{label}</p>
+        <p className="text-[10px] opacity-80">{sub}</p>
+      </div>
+      <span className="text-[9px] uppercase tracking-wide rounded-full px-1.5 py-0.5 bg-background/60 border border-current/30">
+        {tag}
+      </span>
+    </div>
+  );
+}
+
+function FlowArrow() {
+  return <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
 }
