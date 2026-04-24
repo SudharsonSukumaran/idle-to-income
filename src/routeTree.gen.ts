@@ -13,6 +13,8 @@ import { Route as UploadRouteImport } from './routes/upload'
 import { Route as RecommendationsRouteImport } from './routes/recommendations'
 import { Route as ConflictsRouteImport } from './routes/conflicts'
 import { Route as ComparisonRouteImport } from './routes/comparison'
+import { Route as AiChatRouteImport } from './routes/ai-chat'
+import { Route as AccessControlRouteImport } from './routes/access-control'
 import { Route as IndexRouteImport } from './routes/index'
 
 const UploadRoute = UploadRouteImport.update({
@@ -35,6 +37,16 @@ const ComparisonRoute = ComparisonRouteImport.update({
   path: '/comparison',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiChatRoute = AiChatRouteImport.update({
+  id: '/ai-chat',
+  path: '/ai-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccessControlRoute = AccessControlRouteImport.update({
+  id: '/access-control',
+  path: '/access-control',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,6 +55,8 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/access-control': typeof AccessControlRoute
+  '/ai-chat': typeof AiChatRoute
   '/comparison': typeof ComparisonRoute
   '/conflicts': typeof ConflictsRoute
   '/recommendations': typeof RecommendationsRoute
@@ -50,6 +64,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/access-control': typeof AccessControlRoute
+  '/ai-chat': typeof AiChatRoute
   '/comparison': typeof ComparisonRoute
   '/conflicts': typeof ConflictsRoute
   '/recommendations': typeof RecommendationsRoute
@@ -58,6 +74,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/access-control': typeof AccessControlRoute
+  '/ai-chat': typeof AiChatRoute
   '/comparison': typeof ComparisonRoute
   '/conflicts': typeof ConflictsRoute
   '/recommendations': typeof RecommendationsRoute
@@ -65,12 +83,28 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/comparison' | '/conflicts' | '/recommendations' | '/upload'
+  fullPaths:
+    | '/'
+    | '/access-control'
+    | '/ai-chat'
+    | '/comparison'
+    | '/conflicts'
+    | '/recommendations'
+    | '/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/comparison' | '/conflicts' | '/recommendations' | '/upload'
+  to:
+    | '/'
+    | '/access-control'
+    | '/ai-chat'
+    | '/comparison'
+    | '/conflicts'
+    | '/recommendations'
+    | '/upload'
   id:
     | '__root__'
     | '/'
+    | '/access-control'
+    | '/ai-chat'
     | '/comparison'
     | '/conflicts'
     | '/recommendations'
@@ -79,6 +113,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccessControlRoute: typeof AccessControlRoute
+  AiChatRoute: typeof AiChatRoute
   ComparisonRoute: typeof ComparisonRoute
   ConflictsRoute: typeof ConflictsRoute
   RecommendationsRoute: typeof RecommendationsRoute
@@ -115,6 +151,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComparisonRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai-chat': {
+      id: '/ai-chat'
+      path: '/ai-chat'
+      fullPath: '/ai-chat'
+      preLoaderRoute: typeof AiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/access-control': {
+      id: '/access-control'
+      path: '/access-control'
+      fullPath: '/access-control'
+      preLoaderRoute: typeof AccessControlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -127,6 +177,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccessControlRoute: AccessControlRoute,
+  AiChatRoute: AiChatRoute,
   ComparisonRoute: ComparisonRoute,
   ConflictsRoute: ConflictsRoute,
   RecommendationsRoute: RecommendationsRoute,

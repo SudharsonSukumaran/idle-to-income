@@ -1,12 +1,14 @@
-import { LayoutDashboard, Upload, GitMerge, BarChart3, Lightbulb } from "lucide-react";
+import { LayoutDashboard, Upload, GitMerge, BarChart3, Lightbulb, MessageSquare, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Upload Data", url: "/upload", icon: Upload },
   { title: "Conflicts", url: "/conflicts", icon: GitMerge },
-  { title: "Comparison", url: "/comparison", icon: BarChart3 },
+  { title: "Optimization", url: "/comparison", icon: BarChart3 },
   { title: "AI Recommendations", url: "/recommendations", icon: Lightbulb },
+  { title: "AI Chat", url: "/ai-chat", icon: MessageSquare },
+  { title: "Access Control", url: "/access-control", icon: ShieldCheck },
 ];
 
 export function AppSidebar() {

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users, BedDouble, CheckCircle2, TrendingDown, ShieldAlert } from "lucide-react";
+import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users, BedDouble, CheckCircle2, TrendingDown, ShieldAlert, ShieldCheck, UserCog, Info, X } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { toast } from "sonner";
 import { detectFragmentation } from "@/lib/detect-fragmentation";
@@ -226,6 +226,7 @@ function DashboardPage() {
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
+      <FirstTimeHelper />
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
@@ -276,7 +277,7 @@ function DashboardPage() {
 
       {/* Vacant / Booked stat boxes */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatBox icon={BedDouble} label="Vacant" value={vacantCount} tone="green" />
+        <StatBox icon={BedDouble} label="Availability" value={vacantCount} tone="green" />
         <StatBox icon={CheckCircle2} label="Booked" value={bookedCount} tone="gray" />
         <StatBox icon={TrendingDown} label="Under-utilised" value={underUtilized} tone="amber" sub={`-$${Math.round(underRevLoss).toLocaleString()} loss`} />
         <StatBox icon={ShieldAlert} label="Overbooked (Risk)" value={overBooked} tone="red" />
@@ -409,6 +410,25 @@ function DashboardPage() {
           </span>
         </div>
       </div>
+
+      {/* Access Control Overview (UI placeholder) */}
+      <div className="rounded-lg border border-border bg-card p-5">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div>
+            <h2 className="text-sm font-semibold text-card-foreground flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Access Control Overview
+            </h2>
+            <p className="text-xs text-muted-foreground">Snapshot of who can do what across the platform.</p>
+          </div>
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Preview</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <RoleCard icon={ShieldCheck} name="Super Admin" desc="Full control: billing, integrations, roles." members={1} tone="primary" />
+          <RoleCard icon={UserCog} name="Admin" desc="Manage inventory, recommendations, reports." members={3} tone="amber" />
+          <RoleCard icon={Users} name="Operations" desc="Day-to-day bookings & availability updates." members={8} tone="emerald" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -522,4 +542,65 @@ function StatBox({
 function abbreviate(name: string): string {
   if (name.length <= 10) return name;
   return name.slice(0, 9) + "…";
+}
+
+function RoleCard({
+  icon: Icon,
+  name,
+  desc,
+  members,
+  tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  name: string;
+  desc: string;
+  members: number;
+  tone: "primary" | "amber" | "emerald";
+}) {
+  const palette = {
+    primary: "bg-primary/5 border-primary/30 text-primary",
+    amber: "bg-amber-500/10 border-amber-500/30 text-amber-700",
+    emerald: "bg-emerald-500/10 border-emerald-500/30 text-emerald-700",
+  }[tone];
+  return (
+    <div className={`rounded-md border p-3 ${palette}`}>
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="h-4 w-4" />
+        <p className="text-sm font-semibold">{name}</p>
+      </div>
+      <p className="text-xs opacity-80 mb-2">{desc}</p>
+      <p className="text-[11px] font-medium">{members} member{members === 1 ? "" : "s"}</p>
+    </div>
+  );
+}
+
+function FirstTimeHelper() {
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("i2i_helper_dismissed") === "1";
+  });
+  if (dismissed) return null;
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 flex items-start gap-3">
+      <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+      <div className="flex-1 text-sm">
+        <p className="font-semibold text-foreground">Welcome to Idle2Income 👋</p>
+        <p className="text-muted-foreground mt-0.5">
+          Use the left sidebar to navigate: <strong>Upload</strong> data, review <strong>Conflicts</strong>,
+          run <strong>Optimization</strong>, see <strong>AI Recommendations</strong>, or chat with the
+          <strong> AI assistant</strong>. Filters above the dashboard control date range, group, and add-ons.
+        </p>
+      </div>
+      <button
+        onClick={() => {
+          window.localStorage.setItem("i2i_helper_dismissed", "1");
+          setDismissed(true);
+        }}
+        className="text-muted-foreground hover:text-foreground"
+        aria-label="Dismiss"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
 }
