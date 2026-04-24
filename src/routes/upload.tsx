@@ -347,7 +347,7 @@ function UploadPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Upload Data</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Import availability data from .xlsx spreadsheets or load demo data.
+          Import availability data from files (.xlsx, .xls, .csv), connect external sources, or load demo data.
         </p>
       </div>
 
