@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users, BedDouble, CheckCircle2, TrendingDown, ShieldAlert } from "lucide-react";
+import { RefreshCw, LayoutGrid, AlertTriangle, DollarSign, Lightbulb, Clock, Search, Loader2, Users, BedDouble, CheckCircle2, TrendingDown, ShieldAlert, ShieldCheck, UserCog, Info, X } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { toast } from "sonner";
 import { detectFragmentation } from "@/lib/detect-fragmentation";
@@ -276,7 +276,7 @@ function DashboardPage() {
 
       {/* Vacant / Booked stat boxes */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatBox icon={BedDouble} label="Vacant" value={vacantCount} tone="green" />
+        <StatBox icon={BedDouble} label="Availability" value={vacantCount} tone="green" />
         <StatBox icon={CheckCircle2} label="Booked" value={bookedCount} tone="gray" />
         <StatBox icon={TrendingDown} label="Under-utilised" value={underUtilized} tone="amber" sub={`-$${Math.round(underRevLoss).toLocaleString()} loss`} />
         <StatBox icon={ShieldAlert} label="Overbooked (Risk)" value={overBooked} tone="red" />
