@@ -267,8 +267,8 @@ function UploadPage() {
       e.preventDefault();
       setDragOver(false);
       const file = e.dataTransfer.files?.[0];
-      if (file && file.name.endsWith(".xlsx")) processFile(file);
-      else toast.error("Please drop an .xlsx file");
+      if (file && /\.(xlsx|xls|csv)$/i.test(file.name)) processFile(file);
+      else toast.error("Please drop an .xlsx, .xls, or .csv file");
     },
     [processFile],
   );
@@ -356,8 +356,11 @@ function UploadPage() {
         <div className="rounded-lg border border-border bg-card p-6 space-y-4">
           <h2 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-primary" />
-            Upload Excel File
+            Upload Files
           </h2>
+          <p className="text-xs text-muted-foreground -mt-2">
+            Supports .xlsx, .xls, and .csv spreadsheets.
+          </p>
 
           <div>
             <label className="block text-sm font-medium text-card-foreground mb-1">
@@ -391,13 +394,13 @@ function UploadPage() {
               {fileName ? (
                 <span className="text-card-foreground font-medium">{fileName}</span>
               ) : (
-                <>Drag &amp; drop an .xlsx file here, or click to browse</>
+                <>Drag &amp; drop a file here, or click to browse (.xlsx, .xls, .csv)</>
               )}
             </p>
             <input
               ref={fileRef}
               type="file"
-              accept=".xlsx"
+              accept=".xlsx,.xls,.csv"
               onChange={onFileChange}
               className="hidden"
             />
@@ -486,14 +489,14 @@ function UploadPage() {
         {extError && <p className="text-sm text-destructive">{extError}</p>}
       </div>
 
-      {/* Section: Multi-File Upload (combine multiple Excel sources) */}
+      {/* Section: Multi-File Upload (combine multiple sources) */}
       <div className="rounded-lg border border-border bg-card p-6 space-y-4">
         <h2 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
           <Files className="h-5 w-5 text-primary" />
-          Multi-Source Upload (Combine Excels)
+          Connect External Data Sources
         </h2>
         <p className="text-sm text-muted-foreground">
-          Select multiple .xlsx files at once. Schemas are auto-normalised and merged into one unified table.
+          Supports files, databases, APIs, and future integrations. Select multiple files at once — schemas are auto-normalised and merged into one unified table.
         </p>
         <div>
           <label className="block text-sm font-medium text-card-foreground mb-1">
@@ -515,12 +518,12 @@ function UploadPage() {
           <p className="text-sm text-muted-foreground">
             {multiFiles.length > 0
               ? <span className="text-card-foreground font-medium">{multiFiles.length} file(s) selected</span>
-              : <>Click to select multiple .xlsx files</>}
+              : <>Click to select multiple files (.xlsx, .xls, .csv)</>}
           </p>
           <input
             ref={multiRef}
             type="file"
-            accept=".xlsx"
+            accept=".xlsx,.xls,.csv"
             multiple
             onChange={(e) => setMultiFiles(Array.from(e.target.files ?? []))}
             className="hidden"
