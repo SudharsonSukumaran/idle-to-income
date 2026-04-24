@@ -1,5 +1,7 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/AppSidebar";
+import { Globe } from "lucide-react";
+import { useState } from "react";
 
 import appCss from "../styles.css?url";
 
@@ -71,7 +73,8 @@ function RootComponent() {
       <div className="flex flex-1 flex-col overflow-auto">
         {/* Top navbar */}
         <header className="flex h-14 items-center justify-end border-b border-border bg-background px-6 shrink-0">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <LanguageSelector />
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-600 text-sm font-semibold text-white shrink-0">
               SS
             </div>
@@ -86,5 +89,34 @@ function RootComponent() {
         </main>
       </div>
     </div>
+  );
+}
+
+const LANGUAGES = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "fr", label: "Français" },
+  { code: "de", label: "Deutsch" },
+  { code: "hi", label: "हिन्दी" },
+  { code: "ja", label: "日本語" },
+  { code: "ar", label: "العربية" },
+];
+
+function LanguageSelector() {
+  const [lang, setLang] = useState("en");
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+      <Globe className="h-4 w-4" />
+      <select
+        value={lang}
+        onChange={(e) => setLang(e.target.value)}
+        title="Language (UI placeholder — full translation coming soon)"
+        className="bg-transparent border border-input rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+      >
+        {LANGUAGES.map((l) => (
+          <option key={l.code} value={l.code}>{l.label}</option>
+        ))}
+      </select>
+    </label>
   );
 }

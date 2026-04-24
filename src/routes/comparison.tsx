@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { RefreshCw, CheckCircle2, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { RefreshCw, CheckCircle2, Loader2, Zap, ShieldCheck, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DataFilters, getDefaultFilters, applyUnitFilters, type FilterState } from "@/components/DataFilters";
@@ -8,8 +8,8 @@ import { DataFilters, getDefaultFilters, applyUnitFilters, type FilterState } fr
 export const Route = createFileRoute("/comparison")({
   head: () => ({
     meta: [
-      { title: "Comparison — Idle2Income" },
-      { name: "description", content: "Compare before and after revenue recovery." },
+      { title: "Optimization — Idle2Income" },
+      { name: "description", content: "Optimal resource utilization: before vs. after revenue recovery." },
     ],
   }),
   component: ComparisonPage,
@@ -43,6 +43,9 @@ function ComparisonPage() {
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
   const [filters, setFilters] = useState<FilterState>(getDefaultFilters);
+  const [riskProgress, setRiskProgress] = useState(0);
+  const [riskRunning, setRiskRunning] = useState(false);
+  const riskTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchAll = useCallback(async (f: FilterState) => {
     setLoading(true);
@@ -95,6 +98,9 @@ function ComparisonPage() {
     .filter((r) => r.status === "applied")
     .reduce((sum, r) => sum + (r.estimated_recovered ?? 0), 0);
 
+  const improvementPts = Math.max(0, Number(afterPct) - Number(beforePct));
+  const targetRisk = Math.min(100, Math.round(60 + improvementPts * 1.2));
+
   // Lookups
   const unitMap = new Map(units.map((u) => [u.id, u.name ?? u.id]));
   const uniqueUnitIds = [...allowedUnits];
@@ -118,13 +124,40 @@ function ComparisonPage() {
     }
   };
 
+  const startRiskScan = () => {
+    if (riskTimer.current) clearInterval(riskTimer.current);
+    setRiskProgress(0);
+    setRiskRunning(true);
+    const tick = 60; // ms
+    riskTimer.current = setInterval(() => {
+      setRiskProgress((p) => {
+        const next = p + Math.random() * 3.5 + 0.8;
+        if (next >= targetRisk) {
+          if (riskTimer.current) clearInterval(riskTimer.current);
+          setRiskRunning(false);
+          return targetRisk;
+        }
+        return next;
+      });
+    }, tick);
+  };
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (riskTimer.current) clearInterval(riskTimer.current);
+    };
+  }, []);
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Comparison</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Before vs. after revenue recovery</p>
+          <h1 className="text-2xl font-bold text-foreground">Optimization</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Optimal resource utilization — before vs. after revenue recovery.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -146,6 +179,21 @@ function ComparisonPage() {
         </div>
       </div>
 
+      {/* Optimal Resource Utilization hero */}
+      <div className="rounded-lg border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 flex items-start gap-3">
+        <ShieldCheck className="h-6 w-6 text-primary mt-0.5 shrink-0" />
+        <div className="flex-1">
+          <h2 className="text-base font-semibold text-foreground">Optimal Resource Utilization</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Recovered fragments are reallocated to maximise occupancy without overbooking. Compare the heatmaps below to see the lift.
+          </p>
+        </div>
+        <div className="hidden sm:flex flex-col items-end">
+          <span className="text-xs text-muted-foreground">Improvement</span>
+          <span className="text-2xl font-bold text-primary">+{improvementPts.toFixed(1)} pts</span>
+        </div>
+      </div>
+
       {/* Filters */}
       <DataFilters filters={filters} onFiltersChange={setFilters} />
 
@@ -154,6 +202,39 @@ function ComparisonPage() {
         <MetricBadge label="Before" value={`${beforePct}% usable`} variant="muted" />
         <MetricBadge label="After" value={`${afterPct}% usable`} variant="primary" />
         <MetricBadge label="Revenue Recovered" value={`$${recovered.toLocaleString()}`} variant="primary" />
+      </div>
+
+      {/* Live risk visualization (defrag-style) */}
+      <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-amber-500" />
+            <h2 className="text-sm font-semibold text-card-foreground">Live Risk Visualization</h2>
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">demo</span>
+          </div>
+          <button
+            onClick={startRiskScan}
+            disabled={riskRunning}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent/10 disabled:opacity-50"
+          >
+            {riskRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+            {riskRunning ? "Optimizing…" : "Run optimization"}
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {riskRunning
+            ? "Optimization in progress — defragmenting availability and reallocating capacity…"
+            : riskProgress > 0
+              ? `Risk reduction improving — ${riskProgress.toFixed(0)}% of inventory optimised.`
+              : "Click run to simulate live risk reduction across your inventory."}
+        </p>
+        {/* Defrag-style cells */}
+        <DefragBar progress={riskProgress} />
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>Fragmented</span>
+          <span className="font-semibold text-primary">{riskProgress.toFixed(0)}%</span>
+          <span>Optimised</span>
+        </div>
       </div>
 
       {/* Side-by-side grids */}
@@ -252,4 +333,26 @@ function getCellColor(slot: SlotRow | undefined, appliedUnits: Set<string>): str
   if (slot.is_fragment) return "bg-red-500/80";
   if (slot.status === "available") return "bg-emerald-500/80";
   return "bg-muted";
+}
+
+function DefragBar({ progress }: { progress: number }) {
+  // 60 cells in a windows-defrag style strip
+  const total = 60;
+  const filled = Math.round((progress / 100) * total);
+  return (
+    <div className="grid grid-cols-[repeat(60,minmax(0,1fr))] gap-[2px] rounded-md border border-border bg-muted/30 p-1.5">
+      {Array.from({ length: total }).map((_, i) => {
+        const isOpt = i < filled;
+        // fragmented cells get amber/red randomness; optimised cells become emerald
+        const tone = isOpt
+          ? "bg-emerald-500"
+          : i % 7 === 0
+            ? "bg-red-500/70"
+            : i % 3 === 0
+              ? "bg-amber-400/70"
+              : "bg-muted-foreground/30";
+        return <div key={i} className={`h-4 rounded-[2px] transition-colors duration-200 ${tone}`} />;
+      })}
+    </div>
+  );
 }
