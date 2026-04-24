@@ -11,7 +11,7 @@ export const DEFAULT_FROM = "2026-04-14";
 export const DEFAULT_TO = "2026-04-23";
 
 export type AssetGroup = "all" | "rooms" | "spa" | "tables" | "tour";
-export type CategoryType = "all" | "room" | "spa_slot" | "table" | "tour_seat";
+export type CategoryType = "all" | "spa_slot" | "table" | "tour_seat";
 export type RoomTypeFilter = "all" | "Deluxe" | "Standard" | "Suite" | "2X" | "3X";
 export type OccupancyFilter = "all" | "1" | "2" | "3+";
 
@@ -24,11 +24,19 @@ const ASSET_GROUP_LABELS: Record<AssetGroup, string> = {
 };
 
 const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
-  all: "All Types",
-  room: "room",
+  all: "All Add-ons",
   spa_slot: "spa_slot",
   table: "table",
   tour_seat: "tour_seat",
+};
+
+/** Add-ons available per Asset Group. "rooms" group exposes room sub-types via the Room filter, so no add-on options here. */
+const ADDONS_BY_GROUP: Record<AssetGroup, CategoryType[]> = {
+  all: ["all", "spa_slot", "table", "tour_seat"],
+  rooms: ["all"],
+  spa: ["all", "spa_slot"],
+  tables: ["all", "table"],
+  tour: ["all", "tour_seat"],
 };
 
 const ROOM_TYPE_LABELS: Record<RoomTypeFilter, string> = {
@@ -84,6 +92,16 @@ export function DataFilters({ filters, onFiltersChange }: DataFiltersProps) {
   const update = (partial: Partial<FilterState>) =>
     onFiltersChange({ ...filters, ...partial });
 
+  // When group changes, reset add-on type if it's not allowed for that group.
+  const allowedTypes = ADDONS_BY_GROUP[filters.assetGroup];
+  const handleGroupChange = (val: AssetGroup) => {
+    const nextTypes = ADDONS_BY_GROUP[val];
+    const nextCategory: CategoryType = nextTypes.includes(filters.categoryType)
+      ? filters.categoryType
+      : "all";
+    onFiltersChange({ ...filters, assetGroup: val, categoryType: nextCategory });
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
@@ -112,7 +130,7 @@ export function DataFilters({ filters, onFiltersChange }: DataFiltersProps) {
           <label className="text-xs font-medium text-muted-foreground">Group</label>
           <Select
             value={filters.assetGroup}
-            onValueChange={(val) => update({ assetGroup: val as AssetGroup })}
+            onValueChange={(val) => handleGroupChange(val as AssetGroup)}
           >
             <SelectTrigger className="w-[140px] h-9 text-sm">
               <SelectValue />
@@ -129,7 +147,7 @@ export function DataFilters({ filters, onFiltersChange }: DataFiltersProps) {
 
         {/* Category Type */}
         <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-muted-foreground">Type</label>
+          <label className="text-xs font-medium text-muted-foreground">Add-ons</label>
           <Select
             value={filters.categoryType}
             onValueChange={(val) => update({ categoryType: val as CategoryType })}
@@ -138,9 +156,9 @@ export function DataFilters({ filters, onFiltersChange }: DataFiltersProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.entries(CATEGORY_TYPE_LABELS) as [CategoryType, string][]).map(([val, label]) => (
+              {allowedTypes.map((val) => (
                 <SelectItem key={val} value={val}>
-                  {label}
+                  {CATEGORY_TYPE_LABELS[val]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -194,7 +212,7 @@ export function DataFilters({ filters, onFiltersChange }: DataFiltersProps) {
       <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
         Showing: <span className="font-medium text-foreground">{filters.fromDate}</span> → <span className="font-medium text-foreground">{filters.toDate}</span>
         {" | "}Group: <span className="font-medium text-foreground">{ASSET_GROUP_LABELS[filters.assetGroup]}</span>
-        {" | "}Type: <span className="font-medium text-foreground">{CATEGORY_TYPE_LABELS[filters.categoryType]}</span>
+        {" | "}Add-ons: <span className="font-medium text-foreground">{CATEGORY_TYPE_LABELS[filters.categoryType]}</span>
       </div>
     </div>
   );
