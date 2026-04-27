@@ -182,7 +182,7 @@ function AiChatPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <MessageSquare className="h-6 w-6 text-primary" /> AI Chat / Recommendations
+            <MessageSquare className="h-6 w-6 text-primary" /> Ask Me / Recommendations
           </h1>
           <p className="text-sm text-muted-foreground">
             Conversational insights summarised from your live system data.
