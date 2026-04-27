@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, X, Send, Sparkles, Loader2 } from "lucide-react";
+import { X, Send, Sparkles, Loader2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 interface Msg { role: "user" | "assistant"; text: string }
@@ -19,8 +19,8 @@ function quickAnswer(q: string): string {
   if (/over|conflict|risk/.test(lower))
     return "Overbookings need quick resolution. Visit Conflicts → Overbooking and run auto-merge.";
   if (/recover|revenue|earn|money|losing|leak/.test(lower))
-    return "Open AI Recommendations to see recoverable revenue across pending opportunities, then Apply All to lock in projected gains.";
-  return "I can summarise availability, conflicts, fragmentation, and revenue recovery. Try one of the suggestions below or open Ask Me / Recommendations for a deeper view.";
+    return "Open Aura Recommendations to see recoverable revenue across pending opportunities, then Apply All to lock in projected gains.";
+  return "I can summarise availability, conflicts, fragmentation, and revenue recovery. Try one of the suggestions below or open Aura Assistant for a deeper view.";
 }
 
 export function AskMeBot() {
@@ -28,7 +28,7 @@ export function AskMeBot() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", text: "Hi! I'm Ask Me — your revenue copilot. Ask anything about availability, conflicts, or recovery." },
+    { role: "assistant", text: "Hi, I'm Aura — your revenue copilot. Ask anything about availability, conflicts, or recovery." },
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -52,24 +52,28 @@ export function AskMeBot() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          aria-label="Open Ask Me assistant"
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90 transition"
+          aria-label="Open Aura assistant"
+          className="group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[0_8px_30px_-6px_color-mix(in_oklab,var(--primary)_55%,transparent)] ring-1 ring-primary/30 hover:shadow-[0_10px_40px_-6px_color-mix(in_oklab,var(--primary)_70%,transparent)] hover:scale-[1.02] transition-all"
         >
-          <MessageCircle className="h-5 w-5" />
-          Ask Me
+          <span className="relative flex h-6 w-6 items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-white/20 blur-sm group-hover:bg-white/30" />
+            <Sparkles className="relative h-4 w-4" />
+          </span>
+          Aura
         </button>
       )}
 
       {open && (
-        <div className="fixed bottom-5 right-5 z-50 w-[min(380px,calc(100vw-2rem))] rounded-xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-primary/5">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <div className="fixed bottom-5 right-5 z-50 w-[min(380px,calc(100vw-2rem))] rounded-2xl border border-border/60 bg-card/95 backdrop-blur-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.35)] ring-1 ring-primary/10 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+            <div className="flex items-center gap-2.5">
+              <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md">
                 <Sparkles className="h-4 w-4" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card" />
               </div>
               <div className="leading-tight">
-                <p className="text-sm font-semibold text-card-foreground">Ask Me</p>
-                <p className="text-[10px] text-muted-foreground">Revenue copilot · demo</p>
+                <p className="text-sm font-semibold tracking-tight text-card-foreground">Aura Assistant</p>
+                <p className="text-[10px] text-muted-foreground">Revenue copilot · online</p>
               </div>
             </div>
             <button
@@ -138,9 +142,9 @@ export function AskMeBot() {
 
           <Link
             to="/ai-chat"
-            className="border-t border-border bg-muted/40 px-3 py-2 text-[10px] text-center text-muted-foreground hover:bg-muted"
+            className="border-t border-border/60 bg-muted/40 px-3 py-2 text-[10px] text-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
-            Open full Ask Me / Recommendations →
+            Open full Aura Assistant →
           </Link>
         </div>
       )}

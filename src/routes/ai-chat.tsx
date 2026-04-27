@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { MessageSquare, Send, Sparkles, Loader2 } from "lucide-react";
+import { Send, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/ai-chat")({
   head: () => ({
     meta: [
-      { title: "AI Chat / Recommendations — Idle2Income" },
+      { title: "Aura Assistant — Idle2Income" },
       { name: "description", content: "Ask the assistant for revenue recovery insights summarised from your live data." },
     ],
   }),
@@ -34,7 +34,7 @@ interface SystemSnapshot {
 
 function AiChatPage() {
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", text: "Hi! I'm your revenue copilot. I summarise insights from your live availability, conflicts, and recommendations. Pick a prompt below or ask anything." },
+    { role: "assistant", text: "Hi, I'm Aura — your revenue copilot. I summarise insights from your live availability, conflicts, and recommendations. Pick a prompt below or ask anything." },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -182,7 +182,7 @@ function AiChatPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <MessageSquare className="h-6 w-6 text-primary" /> Ask Me / Recommendations
+            <Sparkles className="h-6 w-6 text-primary" /> Aura Assistant
           </h1>
           <p className="text-sm text-muted-foreground">
             Conversational insights summarised from your live system data.
