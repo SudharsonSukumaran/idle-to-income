@@ -347,7 +347,7 @@ function UploadPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Upload Data</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Import availability data from files (.xlsx, .xls, .csv), connect external sources, or load demo data.
+          Upload files such as Excel, CSV, PDF, Word documents, images, JPEG, PNG, and other supported documents.
         </p>
       </div>
 
@@ -359,7 +359,7 @@ function UploadPage() {
             Upload Files
           </h2>
           <p className="text-xs text-muted-foreground -mt-2">
-            Supports .xlsx, .xls, and .csv spreadsheets.
+            Supports Excel, CSV, PDF, Word, images (JPEG/PNG) and other document types. Spreadsheets are parsed live; other formats are accepted for demo intake and future processing.
           </p>
 
           <div>
@@ -394,13 +394,13 @@ function UploadPage() {
               {fileName ? (
                 <span className="text-card-foreground font-medium">{fileName}</span>
               ) : (
-                <>Drag &amp; drop a file here, or click to browse (.xlsx, .xls, .csv)</>
+                <>Drag &amp; drop a file here, or click to browse (Excel, CSV, PDF, Word, JPEG, PNG, …)</>
               )}
             </p>
             <input
               ref={fileRef}
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
               onChange={onFileChange}
               className="hidden"
             />
