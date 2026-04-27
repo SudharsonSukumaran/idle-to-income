@@ -267,8 +267,13 @@ function UploadPage() {
       e.preventDefault();
       setDragOver(false);
       const file = e.dataTransfer.files?.[0];
-      if (file && /\.(xlsx|xls|csv)$/i.test(file.name)) processFile(file);
-      else toast.error("Please drop an .xlsx, .xls, or .csv file");
+      if (!file) return;
+      if (/\.(xlsx|xls|csv)$/i.test(file.name)) {
+        processFile(file);
+      } else {
+        setFileName(file.name);
+        toast.success(`Accepted "${file.name}" for demo intake (parsing for this format coming soon).`);
+      }
     },
     [processFile],
   );
@@ -276,7 +281,13 @@ function UploadPage() {
   const onFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (file) processFile(file);
+      if (!file) return;
+      if (/\.(xlsx|xls|csv)$/i.test(file.name)) {
+        processFile(file);
+      } else {
+        setFileName(file.name);
+        toast.success(`Accepted "${file.name}" for demo intake (parsing for this format coming soon).`);
+      }
     },
     [processFile],
   );
