@@ -1,5 +1,6 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AskMeBot } from "@/components/AskMeBot";
 import { Globe } from "lucide-react";
 import { useState } from "react";
 
@@ -88,6 +89,7 @@ function RootComponent() {
           <Outlet />
         </main>
       </div>
+      <AskMeBot />
     </div>
   );
 }

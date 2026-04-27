@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ShieldCheck, UserCog, Users } from "lucide-react";
+import { ShieldCheck, UserCog, Users, User } from "lucide-react";
 
 export const Route = createFileRoute("/access-control")({
   head: () => ({
@@ -43,6 +43,24 @@ function AccessControlPage() {
         <p className="text-sm text-muted-foreground">
           Role-based access overview. (UI preview — wiring coming soon.)
         </p>
+      </div>
+
+      <div className="rounded-lg border border-primary/30 bg-primary/5 p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary mb-2">Signed-in user</p>
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+            SS
+          </div>
+          <div className="leading-tight">
+            <p className="text-base font-semibold text-foreground flex items-center gap-2">
+              Sudharson S
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 text-primary px-2 py-0.5 text-[10px] font-medium border border-primary/30">
+                <ShieldCheck className="h-3 w-3" /> Super Admin
+              </span>
+            </p>
+            <p className="text-xs text-muted-foreground">Demo authorization view · full system access</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

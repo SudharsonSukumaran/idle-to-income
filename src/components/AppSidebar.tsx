@@ -7,7 +7,7 @@ const navItems = [
   { title: "Conflicts", url: "/conflicts", icon: GitMerge },
   { title: "Optimization", url: "/comparison", icon: BarChart3 },
   { title: "AI Recommendations", url: "/recommendations", icon: Lightbulb },
-  { title: "AI Chat", url: "/ai-chat", icon: MessageSquare },
+  { title: "Ask Me / Recommendations", url: "/ai-chat", icon: MessageSquare },
   { title: "Access Control", url: "/access-control", icon: ShieldCheck },
 ];
 
